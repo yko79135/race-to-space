@@ -1,0 +1,303 @@
+// ============================================================
+// GAME STATE MANAGEMENT
+// ============================================================
+import { buildMainDeck, buildEventDeck, shuffleDeck, getPlayerStage, missions } from './gameData';
+
+export const MAX_HAND_SIZE = 10;
+export const MAX_PLAYS_PER_TURN = 3;
+export const MAX_DISCARDS_PER_TURN = 2;
+
+export function createPlayer(name, colorId, emblem) {
+  return {
+    id: `player_${Math.random().toString(36).slice(2, 7)}`,
+    name,
+    colorId,
+    emblem,
+    resources: { science: 0, money: 0, consensus: 0 },
+    hand: [],
+    unlockedTechs: [],
+    completedMissions: [],
+    stage: 1,
+  };
+}
+
+export function createGameState(players) {
+  const mainDeck = buildMainDeck();
+  const eventDeck = buildEventDeck();
+
+  // Deal initial 5 cards to each player
+  let deckCopy = [...mainDeck];
+  const playersWithHands = players.map(p => {
+    const hand = deckCopy.splice(0, 5);
+    return { ...p, hand };
+  });
+
+  return {
+    players: playersWithHands,
+    currentPlayerIndex: 0,
+    turn: 1,
+    mainDeck: deckCopy,
+    discardPile: [],
+    eventDeck,
+    usedEvents: [],
+    phase: 'draw', // draw | play | event | transition | gameover
+    playsThisTurn: 0,
+    discardsThisTurn: 0,
+    lastEvent: null,
+    winner: null,
+    pendingAction: null, // for target-selection actions
+    log: [],
+  };
+}
+
+export function getCurrentPlayer(state) {
+  return state.players[state.currentPlayerIndex];
+}
+
+// Draw until hand = 10, return new state
+export function drawToFull(state) {
+  const player = getCurrentPlayer(state);
+  const needed = MAX_HAND_SIZE - player.hand.length;
+  if (needed <= 0) return { ...state, phase: 'play' };
+
+  let deck = [...state.mainDeck];
+  let discard = [...state.discardPile];
+
+  // Reshuffle discard if deck is empty
+  if (deck.length < needed && discard.length > 0) {
+    deck = [...deck, ...shuffleDeck(discard)];
+    discard = [];
+  }
+
+  const drawn = deck.splice(0, Math.min(needed, deck.length));
+  const newHand = [...player.hand, ...drawn];
+
+  const updatedPlayers = state.players.map((p, i) =>
+    i === state.currentPlayerIndex ? { ...p, hand: newHand } : p
+  );
+
+  return {
+    ...state,
+    players: updatedPlayers,
+    mainDeck: deck,
+    discardPile: discard,
+    phase: 'play',
+  };
+}
+
+export function drawExtraCards(state, count) {
+  const player = getCurrentPlayer(state);
+  const canDraw = MAX_HAND_SIZE - player.hand.length;
+  const toDraw = Math.min(count, canDraw);
+  if (toDraw <= 0) return state;
+
+  let deck = [...state.mainDeck];
+  let discard = [...state.discardPile];
+
+  if (deck.length < toDraw && discard.length > 0) {
+    deck = [...deck, ...shuffleDeck(discard)];
+    discard = [];
+  }
+
+  const drawn = deck.splice(0, Math.min(toDraw, deck.length));
+  const newHand = [...player.hand, ...drawn];
+
+  const updatedPlayers = state.players.map((p, i) =>
+    i === state.currentPlayerIndex ? { ...p, hand: newHand } : p
+  );
+
+  return { ...state, players: updatedPlayers, mainDeck: deck, discardPile: discard };
+}
+
+export function applyResources(players, playerIndex, delta) {
+  return players.map((p, i) => {
+    if (i !== playerIndex) return p;
+    return {
+      ...p,
+      resources: {
+        science: Math.max(0, p.resources.science + (delta.science || 0)),
+        money: Math.max(0, p.resources.money + (delta.money || 0)),
+        consensus: Math.max(0, p.resources.consensus + (delta.consensus || 0)),
+      },
+    };
+  });
+}
+
+export function applyResourcesByPlayerId(players, playerId, delta) {
+  return players.map(p => {
+    if (p.id !== playerId) return p;
+    return {
+      ...p,
+      resources: {
+        science: Math.max(0, p.resources.science + (delta.science || 0)),
+        money: Math.max(0, p.resources.money + (delta.money || 0)),
+        consensus: Math.max(0, p.resources.consensus + (delta.consensus || 0)),
+      },
+    };
+  });
+}
+
+export function playCard(state, card) {
+  const player = getCurrentPlayer(state);
+  const newHand = player.hand.filter(c => c.uid !== card.uid);
+  const newDiscard = [...state.discardPile, card];
+
+  let players = state.players.map((p, i) =>
+    i === state.currentPlayerIndex ? { ...p, hand: newHand } : p
+  );
+
+  // Apply resource effects
+  if (card.type === 'resource' && card.effect) {
+    players = applyResources(players, state.currentPlayerIndex, card.effect);
+  }
+  if (card.type === 'action') {
+    if (card.actionType === 'gainResource') {
+      players = applyResources(players, state.currentPlayerIndex, card.effect);
+    }
+    if (card.actionType === 'draw2') {
+      // handled separately after state update
+    }
+  }
+
+  return {
+    ...state,
+    players,
+    discardPile: newDiscard,
+    playsThisTurn: state.playsThisTurn + 1,
+  };
+}
+
+export function discardCard(state, card) {
+  const player = getCurrentPlayer(state);
+  const newHand = player.hand.filter(c => c.uid !== card.uid);
+  const newDiscard = [...state.discardPile, card];
+
+  const players = state.players.map((p, i) =>
+    i === state.currentPlayerIndex ? { ...p, hand: newHand } : p
+  );
+
+  return {
+    ...state,
+    players,
+    discardPile: newDiscard,
+    discardsThisTurn: state.discardsThisTurn + 1,
+  };
+}
+
+export function buyTechnology(state, tech) {
+  const player = getCurrentPlayer(state);
+  const cost = tech.cost;
+
+  // Deduct resources
+  let players = applyResources(state.players, state.currentPlayerIndex, {
+    science: -cost.science,
+    money: -cost.money,
+    consensus: -cost.consensus,
+  });
+
+  // Add tech + update stage
+  const newTechs = [...player.unlockedTechs, tech.id];
+  const newStage = getPlayerStage(newTechs);
+
+  players = players.map((p, i) =>
+    i === state.currentPlayerIndex
+      ? { ...p, unlockedTechs: newTechs, stage: newStage }
+      : p
+  );
+
+  return {
+    ...state,
+    players,
+    playsThisTurn: state.playsThisTurn + 1,
+  };
+}
+
+export function completeMission(state, mission) {
+  const player = getCurrentPlayer(state);
+  const cost = mission.cost;
+
+  let players = applyResources(state.players, state.currentPlayerIndex, {
+    science: -cost.science,
+    money: -cost.money,
+    consensus: -cost.consensus,
+  });
+
+  const newMissions = [...player.completedMissions, mission.id];
+  players = players.map((p, i) =>
+    i === state.currentPlayerIndex ? { ...p, completedMissions: newMissions } : p
+  );
+
+  // Check win condition
+  const winner = newMissions.includes('crewed_spaceflight') ? player.id : null;
+
+  return {
+    ...state,
+    players,
+    playsThisTurn: state.playsThisTurn + 1,
+    winner,
+    phase: winner ? 'gameover' : state.phase,
+  };
+}
+
+export function applyEvent(state, event) {
+  let players = [...state.players];
+  const currentIdx = state.currentPlayerIndex;
+
+  if (event.effect.type === 'current') {
+    players = applyResources(players, currentIdx, event.effect.resources);
+  } else if (event.effect.type === 'all') {
+    players = players.map((_, i) => applyResources(players, i, event.effect.resources)[i]);
+  }
+
+  return { ...state, players, lastEvent: event };
+}
+
+export function drawEvent(state) {
+  let eventDeck = [...state.eventDeck];
+  let usedEvents = [...state.usedEvents];
+
+  if (eventDeck.length === 0) {
+    eventDeck = shuffleDeck([...usedEvents]);
+    usedEvents = [];
+  }
+
+  const event = eventDeck.shift();
+  usedEvents.push(event);
+
+  const newState = applyEvent({ ...state, eventDeck, usedEvents }, event);
+  return { ...newState, phase: 'eventReveal', lastEvent: event };
+}
+
+export function endTurn(state) {
+  const nextIndex = (state.currentPlayerIndex + 1) % state.players.length;
+  const nextTurn = nextIndex === 0 ? state.turn + 1 : state.turn;
+
+  return {
+    ...state,
+    currentPlayerIndex: nextIndex,
+    turn: nextTurn,
+    phase: 'transition',
+    playsThisTurn: 0,
+    discardsThisTurn: 0,
+    lastEvent: null,
+  };
+}
+
+export function canBuyTech(player, tech) {
+  const r = player.resources;
+  const c = tech.cost;
+  const hasResources = r.science >= c.science && r.money >= c.money && r.consensus >= c.consensus;
+  const hasPrereqs = tech.prereqs.every(p => player.unlockedTechs.includes(p));
+  const notOwned = !player.unlockedTechs.includes(tech.id);
+  return hasResources && hasPrereqs && notOwned;
+}
+
+export function canAttemptMission(player, mission) {
+  const r = player.resources;
+  const c = mission.cost;
+  const hasResources = r.science >= c.science && r.money >= c.money && r.consensus >= c.consensus;
+  const hasTechs = mission.reqTechs.every(t => player.unlockedTechs.includes(t));
+  const hasPrevMissions = !mission.reqMissions || mission.reqMissions.every(m => player.completedMissions.includes(m));
+  const notCompleted = !player.completedMissions.includes(mission.id);
+  return hasResources && hasTechs && hasPrevMissions && notCompleted;
+}
