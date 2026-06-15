@@ -84,8 +84,9 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
     return createGameState(players);
   });
 
-  const [sidePanelTab, setSidePanelTab] = useState('technologies'); // 'technologies' | 'missions'
+  const [sidePanelTab, setSidePanelTab] = useState('technologies');
   const [notification, setNotification] = useState(null);
+  const [electricityChoice, setElectricityChoice] = useState(null); // null | 'science' | 'money'
 
   const currentPlayer = getCurrentPlayer(gameState);
   const colorObj = COUNTRY_COLORS.find(c => c.id === currentPlayer.colorId) || COUNTRY_COLORS[0];
@@ -104,10 +105,30 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
   }, []);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
+  const hasElectricity = currentPlayer.unlockedTechs.includes('electricity');
+
+  const handleElectricityChoiceAndDraw = useCallback((choice) => {
+    setElectricityChoice(null);
+    // Store the choice on the player before drawing
+    setGameState(s => {
+      const updated = {
+        ...s,
+        players: s.players.map((p, i) =>
+          i === s.currentPlayerIndex ? { ...p, electricityChoice: choice } : p
+        ),
+      };
+      return drawToFull(updated);
+    });
+  }, []);
+
   const handleDraw = useCallback(() => {
     if (currentPlayer.hand.length >= MAX_HAND_SIZE) { notify(t('alreadyDrawn')); return; }
+    if (hasElectricity) {
+      setElectricityChoice('pending'); // show the choice UI
+      return;
+    }
     setGameState(s => drawToFull(s));
-  }, [currentPlayer, t, notify]);
+  }, [currentPlayer, t, notify, hasElectricity]);
 
   const handlePlayCard = useCallback((card) => {
     if (gameState.playsThisTurn >= MAX_PLAYS_PER_TURN) { notify(t('cantPlay')); return; }
@@ -190,6 +211,47 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
     <div className="min-h-screen bg-background relative">
       <StarBackground />
       <LanguageToggle />
+
+      {/* Electricity choice modal */}
+      <AnimatePresence>
+        {electricityChoice === 'pending' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+          >
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              className="bg-card border-2 border-yellow-400 rounded-2xl p-6 max-w-xs w-full text-center"
+            >
+              <div className="text-4xl mb-3">💡</div>
+              <h3 className="text-lg font-heading font-bold mb-1">
+                {lang === 'ko' ? '전기 보너스' : 'Electricity Bonus'}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {lang === 'ko' ? '과학력 1 또는 자금 1을 선택하세요.' : 'Choose: gain 1 Science or 1 Money.'}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleElectricityChoiceAndDraw('science')}
+                  className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-500 transition-colors"
+                >
+                  🔬 {lang === 'ko' ? '과학력' : 'Science'}
+                </button>
+                <button
+                  onClick={() => handleElectricityChoiceAndDraw('money')}
+                  className="flex-1 py-3 bg-yellow-500 text-yellow-950 font-bold rounded-xl hover:bg-yellow-400 transition-colors"
+                >
+                  💰 {lang === 'ko' ? '자금' : 'Money'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Event overlay — floats above everything */}
       <AnimatePresence>

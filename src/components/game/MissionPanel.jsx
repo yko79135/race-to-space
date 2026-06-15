@@ -2,8 +2,18 @@ import React from 'react';
 import { useLanguage } from '../../game/LanguageContext';
 import { missions, technologies } from '../../game/gameData';
 import { canAttemptMission } from '../../game/gameState';
-import { ResourceCost } from './CardComponent';
+import { getFinalMissionCost } from '../../game/techEffects';
 import { Check, Lock } from 'lucide-react';
+
+function CostBadge({ science, money, consensus }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {science > 0 && <span className="text-[11px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">🔬{science}</span>}
+      {money > 0 && <span className="text-[11px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded font-bold">💰{money}</span>}
+      {consensus > 0 && <span className="text-[11px] bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded font-bold">🤝{consensus}</span>}
+    </div>
+  );
+}
 
 export default function MissionPanel({ player, playsRemaining, onAttempt }) {
   const { t, lang } = useLanguage();
@@ -13,6 +23,11 @@ export default function MissionPanel({ player, playsRemaining, onAttempt }) {
       {missions.map((mission, idx) => {
         const completed = player.completedMissions.includes(mission.id);
         const canDo = canAttemptMission(player, mission);
+        const finalCost = getFinalMissionCost(player, mission);
+        const hasDiscount =
+          finalCost.science < mission.cost.science ||
+          finalCost.money < mission.cost.money ||
+          finalCost.consensus < mission.cost.consensus;
 
         return (
           <div
@@ -48,12 +63,22 @@ export default function MissionPanel({ player, playsRemaining, onAttempt }) {
             {!completed && (
               <div className="space-y-1.5 mb-2">
                 {/* Cost */}
-                <ResourceCost
-                  science={mission.cost.science}
-                  money={mission.cost.money}
-                  consensus={mission.cost.consensus}
-                  small
-                />
+                <div>
+                  <p className="text-[10px] text-muted-foreground font-bold mb-0.5">
+                    {lang === 'ko' ? '비용:' : 'Cost:'}
+                    {hasDiscount && (
+                      <span className="ml-1 text-teal-400">
+                        {lang === 'ko' ? '(할인 적용됨)' : '(discounted)'}
+                      </span>
+                    )}
+                  </p>
+                  <CostBadge {...finalCost} />
+                  {hasDiscount && (
+                    <p className="text-[10px] text-muted-foreground line-through mt-0.5">
+                      🔬{mission.cost.science} 💰{mission.cost.money} 🤝{mission.cost.consensus}
+                    </p>
+                  )}
+                </div>
 
                 {/* Required techs */}
                 {mission.reqTechs.length > 0 && (
@@ -105,7 +130,7 @@ export default function MissionPanel({ player, playsRemaining, onAttempt }) {
               >
                 {playsRemaining > 0
                   ? `🚀 ${t('attemptMission')}`
-                  : (lang === 'ko' ? '이번 턴 종료' : 'No plays left')}
+                  : (lang === 'ko' ? '행동 없음' : 'No actions left')}
               </button>
             )}
           </div>

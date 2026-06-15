@@ -2,8 +2,18 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../game/LanguageContext';
 import { technologies, stages, getAvailableTechs } from '../../game/gameData';
 import { canBuyTech } from '../../game/gameState';
-import { ResourceCost } from './CardComponent';
-import { Check, Lock, ChevronDown, ChevronUp } from 'lucide-react';
+import { getFinalTechCost } from '../../game/techEffects';
+import { Check, Lock, ChevronDown, ChevronUp, Zap, Star } from 'lucide-react';
+
+function CostBadge({ science, money, consensus }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {science > 0 && <span className="text-[11px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">🔬{science}</span>}
+      {money > 0 && <span className="text-[11px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded font-bold">💰{money}</span>}
+      {consensus > 0 && <span className="text-[11px] bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded font-bold">🤝{consensus}</span>}
+    </div>
+  );
+}
 
 export default function TechnologyPanel({ player, playsRemaining, onBuy }) {
   const { t, lang } = useLanguage();
@@ -13,7 +23,9 @@ export default function TechnologyPanel({ player, playsRemaining, onBuy }) {
 
   const getStatus = (tech) => {
     if (player.unlockedTechs.includes(tech.id)) return 'owned';
-    if (available.find(a => a.id === tech.id)) return canBuyTech(player, tech) ? 'buyable' : 'available';
+    if (available.find(a => a.id === tech.id)) {
+      return canBuyTech(player, tech) ? 'buyable' : 'available';
+    }
     return 'locked';
   };
 
@@ -26,7 +38,6 @@ export default function TechnologyPanel({ player, playsRemaining, onBuy }) {
 
         return (
           <div key={stage.id}>
-            {/* Stage header */}
             <div className="flex items-center gap-2 mb-2 px-1">
               <span className="text-base">{stage.emoji}</span>
               <span className="text-xs font-bold" style={{ color: stage.color }}>
@@ -40,6 +51,11 @@ export default function TechnologyPanel({ player, playsRemaining, onBuy }) {
                 const owned = status === 'owned';
                 const buyable = status === 'buyable';
                 const isOpen = expanded === tech.id;
+                const finalCost = getFinalTechCost(player, tech);
+                const hasDiscount =
+                  finalCost.science < tech.cost.science ||
+                  finalCost.money < tech.cost.money ||
+                  finalCost.consensus < tech.cost.consensus;
 
                 return (
                   <div
@@ -50,39 +66,88 @@ export default function TechnologyPanel({ player, playsRemaining, onBuy }) {
                         'border-border/40 bg-muted/10 opacity-70'}
                     `}
                   >
-                    {/* Compact header row */}
                     <button
                       className="w-full flex items-center gap-2 p-2.5 text-left"
                       onClick={() => setExpanded(isOpen ? null : tech.id)}
                     >
                       <span className="text-xl flex-shrink-0">{tech.emoji}</span>
-                      <span className="flex-1 text-sm font-bold leading-tight">
-                        {lang === 'ko' ? tech.name_ko : tech.name_en}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-sm font-bold leading-tight">
+                            {lang === 'ko' ? tech.name_ko : tech.name_en}
+                          </span>
+                          {/* Core / Optional badge */}
+                          {tech.isCore ? (
+                            <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1 py-0.5 rounded font-bold leading-none">
+                              {lang === 'ko' ? '핵심' : 'Core'}
+                            </span>
+                          ) : (
+                            <span className="text-[9px] bg-purple-500/20 text-purple-300 px-1 py-0.5 rounded font-bold leading-none">
+                              {lang === 'ko' ? '선택' : 'Optional'}
+                            </span>
+                          )}
+                        </div>
+                        {/* Show final cost inline when collapsed */}
+                        {!isOpen && !owned && (
+                          <div className="mt-0.5">
+                            <CostBadge {...finalCost} />
+                          </div>
+                        )}
+                      </div>
                       {owned && <Check className="w-4 h-4 text-green-400 flex-shrink-0" />}
                       {!owned && !buyable && <Lock className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
                       {!owned && buyable && (
-                        <span className="text-[10px] bg-teal-500/20 text-teal-300 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">
+                        <span className="text-[10px] bg-teal-500/20 text-teal-300 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 whitespace-nowrap">
                           {lang === 'ko' ? '구매 가능' : 'Buy'}
                         </span>
                       )}
-                      {isOpen ? <ChevronUp className="w-3 h-3 text-muted-foreground flex-shrink-0" /> : <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+                      {isOpen
+                        ? <ChevronUp className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                        : <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
                     </button>
 
-                    {/* Expanded detail */}
                     {isOpen && (
                       <div className="px-3 pb-3 border-t border-border/30 pt-2 space-y-2">
+                        {/* Description */}
                         <p className="text-xs text-muted-foreground">
                           {lang === 'ko' ? tech.desc_ko : tech.desc_en}
                         </p>
-                        {!owned && (
-                          <ResourceCost
-                            science={tech.cost.science}
-                            money={tech.cost.money}
-                            consensus={tech.cost.consensus}
-                            small
-                          />
+
+                        {/* Permanent Effect */}
+                        {(tech.effect_en || tech.permanentEffects?.length > 0) && (
+                          <div className="bg-accent/10 border border-accent/30 rounded-lg px-2 py-1.5">
+                            <p className="text-[10px] font-bold text-accent mb-0.5 flex items-center gap-1">
+                              <Zap className="w-3 h-3" />
+                              {lang === 'ko' ? '영구 효과' : 'Permanent Effect'}
+                            </p>
+                            <p className="text-xs text-accent/80">
+                              {lang === 'ko' ? tech.effect_ko : tech.effect_en}
+                            </p>
+                          </div>
                         )}
+
+                        {/* Costs */}
+                        {!owned && (
+                          <div>
+                            <p className="text-[10px] text-muted-foreground font-bold mb-1">
+                              {lang === 'ko' ? '비용:' : 'Cost:'}
+                              {hasDiscount && (
+                                <span className="ml-1 text-teal-400">
+                                  {lang === 'ko' ? '(할인 적용됨)' : '(discounted)'}
+                                </span>
+                              )}
+                            </p>
+                            <CostBadge {...finalCost} />
+                            {hasDiscount && (
+                              <p className="text-[10px] text-muted-foreground line-through mt-0.5">
+                                {lang === 'ko' ? '원래: ' : 'Base: '}
+                                🔬{tech.cost.science} 💰{tech.cost.money} 🤝{tech.cost.consensus}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Prereqs */}
                         {tech.prereqs.length > 0 && !owned && (
                           <p className="text-[10px] text-muted-foreground">
                             {t('requires')}: {tech.prereqs.map((pid, i) => {
@@ -97,6 +162,17 @@ export default function TechnologyPanel({ player, playsRemaining, onBuy }) {
                             })}
                           </p>
                         )}
+
+                        {/* Optional tech note */}
+                        {!tech.isCore && !owned && (
+                          <p className="text-[10px] text-purple-400 italic">
+                            {lang === 'ko'
+                              ? '필수 기술은 아니지만 영구적인 이점을 제공합니다.'
+                              : 'Not required, but provides a permanent advantage.'}
+                          </p>
+                        )}
+
+                        {/* Buy button */}
                         {!owned && buyable && (
                           <button
                             onClick={() => { onBuy(tech); setExpanded(null); }}
@@ -105,7 +181,7 @@ export default function TechnologyPanel({ player, playsRemaining, onBuy }) {
                           >
                             {playsRemaining > 0
                               ? `${t('buyTech')} 🚀`
-                              : (lang === 'ko' ? '이번 턴 종료' : 'No plays left')}
+                              : (lang === 'ko' ? '행동 없음' : 'No actions left')}
                           </button>
                         )}
                       </div>
