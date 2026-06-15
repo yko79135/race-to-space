@@ -23,17 +23,20 @@ export default function TechnologyPanel({ player, playsRemaining, onBuy }) {
 
   const getStatus = (tech) => {
     if (player.unlockedTechs.includes(tech.id)) return 'owned';
-    if (available.find(a => a.id === tech.id)) {
-      return canBuyTech(player, tech) ? 'buyable' : 'available';
-    }
-    return 'locked';
+    const prereqsMet = !tech.prereqs || tech.prereqs.length === 0 ||
+      tech.prereqs.every(p => player.unlockedTechs.includes(p));
+    if (!prereqsMet) return 'locked';
+    return canBuyTech(player, tech) ? 'buyable' : 'needs_resources';
   };
 
   return (
     <div className="space-y-4">
       {stages.map(stage => {
         const stageTechs = technologies.filter(tech => tech.stage === stage.id);
-        const visibleTechs = stageTechs.filter(tech => getStatus(tech) !== 'locked');
+        const visibleTechs = stageTechs.filter(tech => {
+          const s = getStatus(tech);
+          return s !== 'locked';
+        });
         if (visibleTechs.length === 0) return null;
 
         return (
@@ -50,12 +53,13 @@ export default function TechnologyPanel({ player, playsRemaining, onBuy }) {
                 const status = getStatus(tech);
                 const owned = status === 'owned';
                 const buyable = status === 'buyable';
+                const needsResources = status === 'needs_resources';
                 const isOpen = expanded === tech.id;
                 const finalCost = getFinalTechCost(player, tech);
                 const hasDiscount =
-                  finalCost.science < tech.cost.science ||
-                  finalCost.money < tech.cost.money ||
-                  finalCost.consensus < tech.cost.consensus;
+                  finalCost.science < (tech.cost?.science ?? 0) ||
+                  finalCost.money < (tech.cost?.money ?? 0) ||
+                  finalCost.consensus < (tech.cost?.consensus ?? 0);
 
                 return (
                   <div
@@ -63,7 +67,8 @@ export default function TechnologyPanel({ player, playsRemaining, onBuy }) {
                     className={`rounded-xl border-2 overflow-hidden transition-all
                       ${owned ? 'border-green-500/50 bg-green-950/20' :
                         buyable ? 'border-teal-400/60 bg-teal-950/20' :
-                        'border-border/40 bg-muted/10 opacity-70'}
+                        needsResources ? 'border-yellow-500/40 bg-yellow-950/10' :
+                        'border-border/40 bg-muted/10 opacity-60'}
                     `}
                   >
                     <button
@@ -95,10 +100,15 @@ export default function TechnologyPanel({ player, playsRemaining, onBuy }) {
                         )}
                       </div>
                       {owned && <Check className="w-4 h-4 text-green-400 flex-shrink-0" />}
-                      {!owned && !buyable && <Lock className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
-                      {!owned && buyable && (
+                      {status === 'locked' && <Lock className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+                      {needsResources && (
+                        <span className="text-[10px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 whitespace-nowrap">
+                          {lang === 'ko' ? '자원 부족' : 'Need Resources'}
+                        </span>
+                      )}
+                      {buyable && (
                         <span className="text-[10px] bg-teal-500/20 text-teal-300 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 whitespace-nowrap">
-                          {lang === 'ko' ? '구매 가능' : 'Buy'}
+                          {lang === 'ko' ? '연구하기' : 'Research'}
                         </span>
                       )}
                       {isOpen
@@ -148,18 +158,21 @@ export default function TechnologyPanel({ player, playsRemaining, onBuy }) {
                         )}
 
                         {/* Prereqs */}
-                        {tech.prereqs.length > 0 && !owned && (
+                        {!owned && (
                           <p className="text-[10px] text-muted-foreground">
-                            {t('requires')}: {tech.prereqs.map((pid, i) => {
-                              const pt = technologies.find(x => x.id === pid);
-                              const met = player.unlockedTechs.includes(pid);
-                              return (
-                                <span key={pid} className={met ? 'text-green-400' : 'text-red-400'}>
-                                  {pt ? (lang === 'ko' ? pt.name_ko : pt.name_en) : pid}
-                                  {i < tech.prereqs.length - 1 ? ', ' : ''}
-                                </span>
-                              );
-                            })}
+                            {t('requires')}: {tech.prereqs.length === 0
+                              ? <span className="text-green-400">{lang === 'ko' ? '없음' : 'None'}</span>
+                              : tech.prereqs.map((pid, i) => {
+                                  const pt = technologies.find(x => x.id === pid);
+                                  const met = player.unlockedTechs.includes(pid);
+                                  return (
+                                    <span key={pid} className={met ? 'text-green-400' : 'text-red-400'}>
+                                      {pt ? (lang === 'ko' ? pt.name_ko : pt.name_en) : pid}
+                                      {i < tech.prereqs.length - 1 ? ', ' : ''}
+                                    </span>
+                                  );
+                                })
+                            }
                           </p>
                         )}
 

@@ -106,7 +106,7 @@ export function drawToFull(state) {
   // Apply start-of-turn bonuses when drawing (= start of turn)
   const startBonus = getStartOfTurnBonus(player);
   // Electricity choice is stored on the player
-  if (player.unlockedTechs.includes('electricity')) {
+  if (player.unlockedTechs.includes('electricity')) { // electricity id unchanged
     const choice = player.electricityChoice || 'money';
     startBonus[choice] = (startBonus[choice] || 0) + 1;
   }
@@ -202,7 +202,7 @@ export function playCard(state, card) {
 
     // Spoken Language: first consensus card gives +1 consensus
     if (card.subtype === 'consensus' && !players[playerIndex].usedConsensusCardBonus
-        && players[playerIndex].unlockedTechs.includes('language')) {
+        && players[playerIndex].unlockedTechs.includes('spoken_language')) {
       delta.consensus = (delta.consensus || 0) + 1;
       players = players.map((p, i) => i === playerIndex ? { ...p, usedConsensusCardBonus: true } : p);
     }

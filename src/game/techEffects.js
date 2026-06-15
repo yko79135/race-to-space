@@ -11,9 +11,10 @@ import { technologies } from './gameData';
  * Uses this everywhere: display, affordability check, and deduction.
  */
 export function getFinalTechCost(player, tech) {
-  let science = tech.scienceCost;
-  let money = tech.moneyCost;
-  let consensus = tech.consensusCost;
+  // tech costs are stored as tech.cost.{ science, money, consensus }
+  let science = tech.cost?.science ?? 0;
+  let money = tech.cost?.money ?? 0;
+  let consensus = tech.cost?.consensus ?? 0;
 
   const owned = player.unlockedTechs || [];
 
@@ -22,10 +23,9 @@ export function getFinalTechCost(player, tech) {
     if (!t || !t.permanentEffects) continue;
     for (const fx of t.permanentEffects) {
       switch (fx.type) {
-        // Controlled Fire: next tech after fire costs 1 less Money
-        // (applies when player has exactly [fire] unlocked — i.e. length === 1)
-        case 'first_tech_discount': {
-          if (id === 'fire' && player.unlockedTechs.length === 1 && player.unlockedTechs[0] === 'fire') {
+        // Controlled Fire: Basic Tools costs 1 less Money
+        case 'technology_discount': {
+          if (fx.technologyIds && fx.technologyIds.includes(tech.id)) {
             if (fx.resource === 'money') money -= fx.amount;
             if (fx.resource === 'science') science -= fx.amount;
             if (fx.resource === 'consensus') consensus -= fx.amount;

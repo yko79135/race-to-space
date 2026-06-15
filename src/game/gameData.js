@@ -23,37 +23,37 @@ export const stages = [
 //   effect_en / effect_ko                  ← human-readable label for UI
 //
 // Effect types (used in techEffects.js):
-//   start_turn_resource      { resource, amount }
-//   extra_discard_per_turn   { amount }
-//   technology_discount_stage { stages[], resource, amount }
-//   technology_discount_ids  { technologyIds[], resource, amount }
-//   mission_discount         { missionIds[], resource, amount }
-//   first_tech_discount      { resource, amount }   — applies on the 2nd tech bought (first non-fire)
+  //   start_turn_resource      { resource, amount }
+  //   extra_discard_per_turn   { amount }
+  //   technology_discount_stage { stages[], resource, amount }
+  //   technology_discount_ids  { technologyIds[], resource, amount }
+  //   technology_discount      { technologyIds[], resource, amount }
+  //   mission_discount         { missionIds[], resource, amount }
 
 export const technologies = [
   // ── STAGE 1 ──────────────────────────────────────────────────────────────
 
   {
-    id: 'fire', stage: 1, isCore: true, emoji: '🔥', color: '#f59e0b',
+    id: 'controlled_fire', stage: 1, isCore: true, emoji: '🔥', color: '#f59e0b',
     name_en: 'Controlled Fire', name_ko: '불의 사용',
-    desc_en: 'Use fire for warmth and cooking.',
-    desc_ko: '불로 따뜻하게 하고 음식을 익혀요.',
+    desc_en: 'People learn to control fire for cooking, warmth, protection, and making better tools.',
+    desc_ko: '사람들은 요리, 보온, 보호, 더 나은 도구 제작을 위해 불을 다루는 법을 배웁니다.',
     prereqs: [],
-    cost: { science: 2, money: 0, consensus: 1 },
+    cost: { science: 1, money: 1, consensus: 0 },
     permanentEffects: [
-      { type: 'first_tech_discount', resource: 'money', amount: 1 },
+      { type: 'technology_discount', technologyIds: ['basic_tools'], resource: 'money', amount: 1 },
     ],
-    effect_en: 'Your next technology costs 1 less Money.',
-    effect_ko: '다음에 구매하는 기술의 자금 비용이 1 감소합니다.',
+    effect_en: 'Basic Tools costs 1 less Money.',
+    effect_ko: '기초 도구의 자금 비용이 1 감소합니다.',
   },
 
   {
-    id: 'language', stage: 1, isCore: true, emoji: '💬', color: '#f59e0b',
+    id: 'spoken_language', stage: 1, isCore: true, emoji: '💬', color: '#f59e0b',
     name_en: 'Spoken Language', name_ko: '말과 언어',
     desc_en: 'Talk and share ideas with others.',
     desc_ko: '말로 생각을 나눠요.',
     prereqs: [],
-    cost: { science: 1, money: 0, consensus: 2 },
+    cost: { science: 1, money: 0, consensus: 1 },
     permanentEffects: [
       { type: 'consensus_card_bonus', amount: 1 },
     ],
@@ -62,11 +62,11 @@ export const technologies = [
   },
 
   {
-    id: 'tools', stage: 1, isCore: true, emoji: '🪨', color: '#f59e0b',
+    id: 'basic_tools', stage: 1, isCore: true, emoji: '🪨', color: '#f59e0b',
     name_en: 'Basic Tools', name_ko: '기초 도구',
     desc_en: 'Make simple tools from stone and wood.',
     desc_ko: '돌과 나무로 간단한 도구를 만들어요.',
-    prereqs: ['fire'],
+    prereqs: ['controlled_fire'],
     cost: { science: 2, money: 1, consensus: 0 },
     permanentEffects: [
       { type: 'technology_discount_stage', stages: [1, 2], resource: 'money', amount: 1 },
@@ -80,7 +80,7 @@ export const technologies = [
     name_en: 'Farming', name_ko: '농업',
     desc_en: 'Grow crops to feed your people.',
     desc_ko: '작물을 키워 사람들을 먹여요.',
-    prereqs: ['language'],
+    prereqs: ['spoken_language'],
     cost: { science: 2, money: 1, consensus: 1 },
     permanentEffects: [
       { type: 'start_turn_resource', resource: 'money', amount: 1 },
@@ -96,7 +96,7 @@ export const technologies = [
     name_en: 'Writing', name_ko: '문자',
     desc_en: 'Record ideas and share knowledge.',
     desc_ko: '생각을 기록하고 지식을 나눠요.',
-    prereqs: ['language'],
+    prereqs: ['spoken_language'],
     cost: { science: 3, money: 1, consensus: 1 },
     permanentEffects: [
       { type: 'extra_discard_per_turn', amount: 1 },
@@ -122,7 +122,7 @@ export const technologies = [
     name_en: 'Metalworking', name_ko: '금속 가공',
     desc_en: 'Shape metal into stronger tools.',
     desc_ko: '금속으로 더 강한 도구를 만들어요.',
-    prereqs: ['tools'],
+    prereqs: ['basic_tools'],
     cost: { science: 2, money: 2, consensus: 1 },
     permanentEffects: [
       { type: 'technology_discount_ids', technologyIds: ['precision', 'engines'], resource: 'money', amount: 1 },
