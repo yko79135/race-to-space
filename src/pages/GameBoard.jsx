@@ -15,8 +15,9 @@ import TechnologyPanel from '../components/game/TechnologyPanel';
 import MissionPanel from '../components/game/MissionPanel';
 import EventCard from '../components/game/EventCard';
 import TransitionScreen from '../components/game/TransitionScreen';
+import FullTechnologyTree from '../components/game/FullTechnologyTree';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Rocket, FlaskConical, Trophy, Globe2 } from 'lucide-react';
+import { Rocket, FlaskConical, Trophy, Globe2, GitBranch } from 'lucide-react';
 
 // ── Victory screen ────────────────────────────────────────────────────────────
 function VictoryScreen({ winner, turn, onPlayAgain, onReturnToMenu }) {
@@ -86,7 +87,8 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
 
   const [sidePanelTab, setSidePanelTab] = useState('technologies');
   const [notification, setNotification] = useState(null);
-  const [electricityChoice, setElectricityChoice] = useState(null); // null | 'science' | 'money'
+  const [electricityChoice, setElectricityChoice] = useState(null);
+  const [showFullTechTree, setShowFullTechTree] = useState(false); // null | 'science' | 'money'
 
   const currentPlayer = getCurrentPlayer(gameState);
   const colorObj = COUNTRY_COLORS.find(c => c.id === currentPlayer.colorId) || COUNTRY_COLORS[0];
@@ -209,6 +211,14 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background relative">
+
+      {/* Full Technology Tree overlay — informational only, no game state change */}
+      {showFullTechTree && (
+        <FullTechnologyTree
+          player={currentPlayer}
+          onClose={() => setShowFullTechTree(false)}
+        />
+      )}
       <StarBackground />
       <LanguageToggle />
 
@@ -430,6 +440,30 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
 
           {/* ── RIGHT: SIDE PANEL ────────────────────────────────────────────── */}
           <aside className="space-y-3">
+
+            {/* View Full Tech Tree entry button */}
+            <button
+              type="button"
+              onClick={() => setShowFullTechTree(true)}
+              className="w-full flex items-center gap-3 bg-card border border-border hover:border-primary/50 hover:bg-primary/5 rounded-xl p-3 text-left transition-all group"
+            >
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                <GitBranch className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-bold text-foreground leading-tight">
+                  {t('viewFullTechTree')}
+                </h3>
+                <p className="text-[11px] text-muted-foreground leading-tight mt-0.5 truncate">
+                  {t('viewFullTechTreeDesc')}
+                </p>
+              </div>
+              <div className="text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
 
             {/* Tab switcher */}
             <div className="flex rounded-xl overflow-hidden border border-border bg-card">
