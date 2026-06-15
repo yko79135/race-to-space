@@ -55,8 +55,7 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
     return createGameState(players);
   });
 
-  const [showTech, setShowTech] = useState(false);
-  const [showMissions, setShowMissions] = useState(false);
+  const [activeView, setActiveView] = useState('board'); // 'board' | 'technology' | 'missions'
   const [showHand, setShowHand] = useState(true);
   const [notification, setNotification] = useState(null);
 
@@ -140,6 +139,29 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
     setGameState(s => endTurn(s));
   }, []);
 
+  // --- Sub-view renders (fully replace the board) ---
+  if (activeView === 'technology') {
+    return (
+      <TechScreen
+        player={currentPlayer}
+        playsRemaining={MAX_PLAYS_PER_TURN - gameState.playsThisTurn}
+        onBuy={handleBuyTech}
+        onClose={() => setActiveView('board')}
+      />
+    );
+  }
+
+  if (activeView === 'missions') {
+    return (
+      <MissionScreen
+        player={currentPlayer}
+        playsRemaining={MAX_PLAYS_PER_TURN - gameState.playsThisTurn}
+        onAttempt={handleAttemptMission}
+        onClose={() => setActiveView('board')}
+      />
+    );
+  }
+
   // Phase guidance message
   const getGuide = () => {
     const { phase, playsThisTurn } = gameState;
@@ -192,24 +214,6 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
           <EventCard event={gameState.lastEvent} onContinue={handleEventContinue} />
         )}
       </AnimatePresence>
-
-      {/* Tech / Mission screens */}
-      {showTech && (
-        <TechScreen
-          player={currentPlayer}
-          playsThisTurn={gameState.playsThisTurn}
-          onBuyTech={handleBuyTech}
-          onClose={() => setShowTech(false)}
-        />
-      )}
-      {showMissions && (
-        <MissionScreen
-          player={currentPlayer}
-          playsThisTurn={gameState.playsThisTurn}
-          onAttemptMission={handleAttemptMission}
-          onClose={() => setShowMissions(false)}
-        />
-      )}
 
       {/* Notification */}
       <AnimatePresence>
@@ -279,14 +283,14 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
           {phase === 'play' && (
             <>
               <button
-                onClick={() => setShowTech(true)}
+                onClick={() => setActiveView('technology')}
                 className="flex-1 py-2.5 bg-blue-600/80 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors text-sm flex items-center justify-center gap-1"
               >
                 <FlaskConical className="w-4 h-4" />
                 {t('exploreTech')}
               </button>
               <button
-                onClick={() => setShowMissions(true)}
+                onClick={() => setActiveView('missions')}
                 className="flex-1 py-2.5 bg-yellow-600/80 text-white font-bold rounded-xl hover:bg-yellow-600 transition-colors text-sm flex items-center justify-center gap-1"
               >
                 <Rocket className="w-4 h-4" />
