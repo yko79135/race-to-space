@@ -1,128 +1,120 @@
 import React from 'react';
 import { useLanguage } from '../../game/LanguageContext';
-import { allTechCards, eraData } from '../../game/cardData';
-import { FlaskConical, Coins, Users, Lock, Check, ChevronLeft } from 'lucide-react';
+import { technologies, stages } from '../../game/gameData';
+import { canBuyTech } from '../../game/gameState';
+import { Check, Lock, GitBranch } from 'lucide-react';
 
-export default function TechTreeView({ unlockedTechs, onClose }) {
-  const { t, cardText, lang } = useLanguage();
+// Returns all techs grouped by stage
+function groupByStage() {
+  const groups = {};
+  for (const tech of technologies) {
+    if (!groups[tech.stage]) groups[tech.stage] = [];
+    groups[tech.stage].push(tech);
+  }
+  return groups;
+}
 
-  const getTechStatus = (tech) => {
-    if (unlockedTechs.includes(tech.id)) return 'unlocked';
-    if (!tech.prerequisites || tech.prerequisites.length === 0) return 'available';
-    const allPrereqsMet = tech.prerequisites.every(p => unlockedTechs.includes(p));
-    return allPrereqsMet ? 'available' : 'locked';
-  };
+const STATUS_STYLES = {
+  owned:     'border-green-500 bg-green-950/40 opacity-100',
+  buyable:   'border-teal-400 bg-teal-950/30 opacity-100',
+  available: 'border-border/50 bg-card/60 opacity-80',
+  locked:    'border-border/20 bg-card/30 opacity-40',
+};
 
-  const statusStyles = {
-    unlocked: 'border-emerald-500/60 bg-emerald-950/30',
-    available: 'border-blue-500/60 bg-blue-950/20',
-    locked: 'border-border/30 bg-muted/20 opacity-60',
+export default function TechTreeView({ player, playsRemaining, onBuyTech }) {
+  const { lang } = useLanguage();
+  const groups = groupByStage();
+
+  const getStatus = (tech) => {
+    if (player.unlockedTechs.includes(tech.id)) return 'owned';
+    const prereqsMet = tech.prereqs.every(p => player.unlockedTechs.includes(p));
+    if (!prereqsMet) return 'locked';
+    return canBuyTech(player, tech) ? 'buyable' : 'available';
   };
 
   return (
-    <div className="fixed inset-0 z-40 bg-background/95 backdrop-blur-sm overflow-auto">
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <button onClick={onClose} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-            <ChevronLeft className="w-5 h-5" />
-            <span className="text-sm">{t('close')}</span>
-          </button>
-          <h2 className="text-xl font-heading font-bold">{t('techTree')}</h2>
-          <div className="w-20" />
-        </div>
+    <div className="space-y-4">
+      {stages.map(stage => {
+        const techs = groups[stage.id] || [];
+        return (
+          <div key={stage.id}>
+            {/* Stage header */}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-base">{stage.emoji}</span>
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: stage.color }}>
+                {lang === 'ko' ? stage.name_ko : stage.name_en}
+              </span>
+              <div className="flex-1 h-px bg-border/30" />
+            </div>
 
-        {/* Legend */}
-        <div className="flex gap-4 mb-6 justify-center text-xs">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded border border-emerald-500 bg-emerald-950/30" />
-            <span className="text-muted-foreground">{t('unlocked')}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded border border-blue-500 bg-blue-950/20" />
-            <span className="text-muted-foreground">{t('available')}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded border border-border/30 bg-muted/20 opacity-60" />
-            <span className="text-muted-foreground">{t('locked')}</span>
-          </div>
-        </div>
+            {/* Tech cards in this stage */}
+            <div className="space-y-1.5 pl-2">
+              {techs.map(tech => {
+                const status = getStatus(tech);
+                const canBuy = status === 'buyable' && playsRemaining > 0;
 
-        {/* Eras */}
-        <div className="space-y-8">
-          {eraData.map(era => {
-            const eraTechs = allTechCards.filter(tc => tc.era === era.id);
-            if (eraTechs.length === 0) return null;
+                return (
+                  <div
+                    key={tech.id}
+                    className={`rounded-lg border-2 px-2.5 py-2 flex items-center gap-2 transition-all ${STATUS_STYLES[status]}`}
+                  >
+                    {/* Prereq connector line */}
+                    {tech.prereqs.length > 0 && (
+                      <GitBranch className="w-3 h-3 text-muted-foreground/50 flex-shrink-0" />
+                    )}
 
-            return (
-              <div key={era.id}>
-                <div className={`flex items-center gap-3 mb-3 ${era.color}`}>
-                  <div className={`w-8 h-8 rounded-lg ${era.bgColor} border ${era.borderColor} flex items-center justify-center text-sm font-bold font-heading`}>
-                    {era.id}
-                  </div>
-                  <h3 className="text-lg font-heading font-semibold">
-                    {lang === 'ko' ? era.name_ko : era.name_en}
-                  </h3>
-                  <div className="flex-1 h-px bg-border/30" />
-                </div>
+                    <span className="text-lg flex-shrink-0">{tech.emoji}</span>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                  {eraTechs.map(tech => {
-                    const status = getTechStatus(tech);
-                    return (
-                      <div key={tech.id} className={`rounded-lg border p-3 ${statusStyles[status]} transition-all`}>
-                        <div className="flex items-start justify-between mb-1">
-                          <h4 className="text-sm font-heading font-semibold leading-tight">
-                            {cardText(tech, 'name')}
-                          </h4>
-                          {status === 'unlocked' && <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />}
-                          {status === 'locked' && <Lock className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                          {cardText(tech, 'description')}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <p className="text-xs font-bold text-white leading-tight">
+                          {lang === 'ko' ? tech.name_ko : tech.name_en}
                         </p>
-                        {/* Cost */}
-                        <div className="flex items-center gap-2 text-xs mb-1">
-                          {tech.cost.science > 0 && (
-                            <span className="flex items-center gap-0.5 text-cyan-400">
-                              <FlaskConical className="w-3 h-3" />{tech.cost.science}
-                            </span>
-                          )}
-                          {tech.cost.money > 0 && (
-                            <span className="flex items-center gap-0.5 text-yellow-400">
-                              <Coins className="w-3 h-3" />{tech.cost.money}
-                            </span>
-                          )}
-                          {tech.cost.consensus > 0 && (
-                            <span className="flex items-center gap-0.5 text-purple-400">
-                              <Users className="w-3 h-3" />{tech.cost.consensus}
-                            </span>
-                          )}
-                        </div>
-                        {/* Prerequisites */}
-                        {tech.prerequisites && tech.prerequisites.length > 0 && (
-                          <div className="text-[10px] text-muted-foreground mt-1">
-                            {t('requires')}: {tech.prerequisites.map(p => {
-                              const pc = allTechCards.find(c => c.id === p);
-                              const met = unlockedTechs.includes(p);
-                              return (
-                                <span key={p} className={met ? 'text-emerald-400' : 'text-red-400'}>
-                                  {pc ? cardText(pc, 'name') : p}
-                                  {tech.prerequisites.indexOf(p) < tech.prerequisites.length - 1 ? ', ' : ''}
-                                </span>
-                              );
-                            })}
-                          </div>
+                        {tech.deadEnd && (
+                          <span className="text-[9px] bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-full px-1.5 py-0.5 font-bold whitespace-nowrap">
+                            {lang === 'ko' ? '⭐ 보너스' : '⭐ Bonus'}
+                          </span>
                         )}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+
+                      {/* Cost */}
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        {tech.cost.science > 0 && <span className="text-blue-300 text-[10px] font-bold">🔬{tech.cost.science}</span>}
+                        {tech.cost.money > 0 && <span className="text-yellow-300 text-[10px] font-bold">💰{tech.cost.money}</span>}
+                        {tech.cost.consensus > 0 && <span className="text-green-300 text-[10px] font-bold">🤝{tech.cost.consensus}</span>}
+                      </div>
+
+                      {/* Dead-end bonus label */}
+                      {tech.deadEnd && (
+                        <p className="text-[10px] text-amber-300 font-medium mt-0.5">
+                          {lang === 'ko' ? tech.bonusDesc_ko : tech.bonusDesc_en}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Status indicator / button */}
+                    {status === 'owned' && <Check className="w-4 h-4 text-green-400 flex-shrink-0" />}
+                    {status === 'locked' && <Lock className="w-3.5 h-3.5 text-muted-foreground/50 flex-shrink-0" />}
+                    {canBuy && (
+                      <button
+                        onClick={() => onBuyTech(tech)}
+                        className="flex-shrink-0 px-2 py-1 rounded-md bg-teal-500 text-teal-950 font-bold text-[10px] hover:bg-teal-400 transition-colors whitespace-nowrap"
+                      >
+                        {lang === 'ko' ? '연구' : 'Get'}
+                      </button>
+                    )}
+                    {status === 'available' && !canBuy && (
+                      <span className="flex-shrink-0 text-[10px] text-muted-foreground whitespace-nowrap">
+                        {lang === 'ko' ? '자원 부족' : 'Need more'}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

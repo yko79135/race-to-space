@@ -195,6 +195,11 @@ export function buyTechnology(state, tech) {
     consensus: -cost.consensus,
   });
 
+  // Apply dead-end bonus immediately
+  if (tech.bonus) {
+    players = applyResources(players, state.currentPlayerIndex, tech.bonus);
+  }
+
   // Add tech + update stage
   const newTechs = [...player.unlockedTechs, tech.id];
   const newStage = getPlayerStage(newTechs);

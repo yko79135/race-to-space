@@ -17,32 +17,32 @@ export const technologies = [
   // Stage 1
   { id: 'fire', stage: 1, name_en: 'Controlled Fire', name_ko: '불의 사용', desc_en: 'Use fire for warmth and cooking.', desc_ko: '불로 따뜻하게 하고 음식을 익혀요.', cost: { science: 2, money: 0, consensus: 1 }, prereqs: [], emoji: '🔥', color: '#f59e0b' },
   { id: 'tools', stage: 1, name_en: 'Basic Tools', name_ko: '기초 도구', desc_en: 'Make simple tools from stone and wood.', desc_ko: '돌과 나무로 간단한 도구를 만들어요.', cost: { science: 2, money: 1, consensus: 0 }, prereqs: ['fire'], emoji: '🪨', color: '#f59e0b' },
-  { id: 'farming', stage: 1, name_en: 'Farming', name_ko: '농업', desc_en: 'Grow crops to feed your people.', desc_ko: '작물을 키워 사람들을 먹여요.', cost: { science: 2, money: 1, consensus: 1 }, prereqs: ['tools'], emoji: '🌾', color: '#f59e0b' },
+  { id: 'farming', stage: 1, name_en: 'Farming', name_ko: '농업', desc_en: 'Grow crops to feed your people. Grants +3 Money immediately.', desc_ko: '작물을 키워 사람들을 먹여요. 즉시 자금 +3을 얻습니다.', cost: { science: 2, money: 1, consensus: 1 }, prereqs: ['tools'], emoji: '🌾', color: '#f59e0b', bonus: { money: 3 }, bonusDesc_en: '+3 Money', bonusDesc_ko: '자금 +3', deadEnd: true },
   { id: 'language', stage: 1, name_en: 'Spoken Language', name_ko: '말과 언어', desc_en: 'Talk and share ideas with others.', desc_ko: '말로 생각을 나눠요.', cost: { science: 1, money: 0, consensus: 2 }, prereqs: [], emoji: '💬', color: '#f59e0b' },
 
   // Stage 2
   { id: 'writing', stage: 2, name_en: 'Writing', name_ko: '문자', desc_en: 'Record ideas and share knowledge.', desc_ko: '생각을 기록하고 지식을 나눠요.', cost: { science: 3, money: 1, consensus: 1 }, prereqs: ['language'], emoji: '✍️', color: '#10b981' },
   { id: 'math', stage: 2, name_en: 'Mathematics', name_ko: '수학', desc_en: 'Count, measure, and solve problems.', desc_ko: '수를 세고 문제를 풀어요.', cost: { science: 3, money: 1, consensus: 0 }, prereqs: ['writing'], emoji: '🔢', color: '#10b981' },
   { id: 'metalwork', stage: 2, name_en: 'Metalworking', name_ko: '금속 가공', desc_en: 'Shape metal into stronger tools.', desc_ko: '금속으로 더 강한 도구를 만들어요.', cost: { science: 2, money: 2, consensus: 1 }, prereqs: ['tools'], emoji: '⚒️', color: '#10b981' },
-  { id: 'astronomy', stage: 2, name_en: 'Astronomy', name_ko: '천문학', desc_en: 'Study the stars and planets.', desc_ko: '별과 행성을 연구해요.', cost: { science: 4, money: 1, consensus: 1 }, prereqs: ['math'], emoji: '⭐', color: '#10b981' },
+  { id: 'astronomy', stage: 2, name_en: 'Astronomy', name_ko: '천문학', desc_en: 'Study the stars and planets. Grants +4 Science immediately.', desc_ko: '별과 행성을 연구해요. 즉시 과학력 +4를 얻습니다.', cost: { science: 4, money: 1, consensus: 1 }, prereqs: ['math'], emoji: '⭐', color: '#10b981', bonus: { science: 4 }, bonusDesc_en: '+4 Science', bonusDesc_ko: '과학력 +4', deadEnd: true },
 
   // Stage 3
   { id: 'experiments', stage: 3, name_en: 'Scientific Experiments', name_ko: '과학 실험', desc_en: 'Test ideas with careful experiments.', desc_ko: '실험으로 아이디어를 검증해요.', cost: { science: 4, money: 2, consensus: 1 }, prereqs: ['math'], emoji: '🧪', color: '#3b82f6' },
   { id: 'physics', stage: 3, name_en: 'Physics', name_ko: '물리학', desc_en: 'Understand how forces and motion work.', desc_ko: '힘과 운동의 원리를 이해해요.', cost: { science: 5, money: 2, consensus: 1 }, prereqs: ['experiments'], emoji: '⚡', color: '#3b82f6' },
   { id: 'chemistry', stage: 3, name_en: 'Chemistry', name_ko: '화학', desc_en: 'Learn how materials combine and change.', desc_ko: '물질이 어떻게 결합하고 변화하는지 알아요.', cost: { science: 5, money: 2, consensus: 1 }, prereqs: ['experiments'], emoji: '🧫', color: '#3b82f6' },
-  { id: 'precision', stage: 3, name_en: 'Precision Tools', name_ko: '정밀 도구', desc_en: 'Build very accurate measuring tools.', desc_ko: '아주 정확한 측정 도구를 만들어요.', cost: { science: 4, money: 3, consensus: 0 }, prereqs: ['metalwork'], emoji: '📐', color: '#3b82f6' },
+  { id: 'precision', stage: 3, name_en: 'Precision Tools', name_ko: '정밀 도구', desc_en: 'Build very accurate measuring tools. Grants +3 Science and +2 Money immediately.', desc_ko: '아주 정확한 측정 도구를 만들어요. 즉시 과학력 +3, 자금 +2를 얻습니다.', cost: { science: 4, money: 3, consensus: 0 }, prereqs: ['metalwork'], emoji: '📐', color: '#3b82f6', bonus: { science: 3, money: 2 }, bonusDesc_en: '+3 Science, +2 Money', bonusDesc_ko: '과학력 +3, 자금 +2', deadEnd: true },
 
   // Stage 4
   { id: 'steam', stage: 4, name_en: 'Steam Power', name_ko: '증기 기관', desc_en: 'Use steam to power machines.', desc_ko: '증기로 기계를 움직여요.', cost: { science: 5, money: 3, consensus: 2 }, prereqs: ['physics'], emoji: '🏭', color: '#8b5cf6' },
-  { id: 'factories', stage: 4, name_en: 'Factories', name_ko: '공장', desc_en: 'Build places that make many goods quickly.', desc_ko: '물건을 빠르게 많이 만드는 곳이에요.', cost: { science: 4, money: 5, consensus: 2 }, prereqs: ['steam'], emoji: '🏗️', color: '#8b5cf6' },
+  { id: 'factories', stage: 4, name_en: 'Factories', name_ko: '공장', desc_en: 'Build places that make many goods quickly. Grants +5 Money immediately.', desc_ko: '물건을 빠르게 많이 만드는 곳이에요. 즉시 자금 +5를 얻습니다.', cost: { science: 4, money: 5, consensus: 2 }, prereqs: ['steam'], emoji: '🏗️', color: '#8b5cf6', bonus: { money: 5 }, bonusDesc_en: '+5 Money', bonusDesc_ko: '자금 +5', deadEnd: true },
   { id: 'electricity', stage: 4, name_en: 'Electricity', name_ko: '전기', desc_en: 'Power lights, machines, and cities.', desc_ko: '전기로 불을 켜고 기계를 돌려요.', cost: { science: 6, money: 4, consensus: 2 }, prereqs: ['physics', 'chemistry'], emoji: '💡', color: '#8b5cf6' },
   { id: 'engines', stage: 4, name_en: 'Engines', name_ko: '엔진', desc_en: 'Build powerful motors that move vehicles.', desc_ko: '강력한 모터로 탈것을 움직여요.', cost: { science: 5, money: 4, consensus: 1 }, prereqs: ['steam'], emoji: '⚙️', color: '#8b5cf6' },
 
   // Stage 5
-  { id: 'radio', stage: 5, name_en: 'Radio', name_ko: '라디오', desc_en: 'Send messages through the air.', desc_ko: '공기를 통해 메시지를 보내요.', cost: { science: 6, money: 4, consensus: 2 }, prereqs: ['electricity'], emoji: '📻', color: '#ec4899' },
+  { id: 'radio', stage: 5, name_en: 'Radio', name_ko: '라디오', desc_en: 'Send messages through the air. Grants +4 Consensus immediately.', desc_ko: '공기를 통해 메시지를 보내요. 즉시 사회적 합의 +4를 얻습니다.', cost: { science: 6, money: 4, consensus: 2 }, prereqs: ['electricity'], emoji: '📻', color: '#ec4899', bonus: { consensus: 4 }, bonusDesc_en: '+4 Consensus', bonusDesc_ko: '사회적 합의 +4', deadEnd: true },
   { id: 'electronics', stage: 5, name_en: 'Electronics', name_ko: '전자공학', desc_en: 'Build circuits that control machines.', desc_ko: '회로로 기계를 제어해요.', cost: { science: 7, money: 5, consensus: 2 }, prereqs: ['electricity'], emoji: '🔌', color: '#ec4899' },
   { id: 'computers', stage: 5, name_en: 'Computers', name_ko: '컴퓨터', desc_en: 'Use machines that can think and calculate.', desc_ko: '생각하고 계산하는 기계를 사용해요.', cost: { science: 8, money: 6, consensus: 2 }, prereqs: ['electronics'], emoji: '💻', color: '#ec4899' },
-  { id: 'airplanes', stage: 5, name_en: 'Airplanes', name_ko: '비행기', desc_en: 'Fly through the sky in a machine.', desc_ko: '기계를 타고 하늘을 날아요.', cost: { science: 7, money: 5, consensus: 3 }, prereqs: ['engines'], emoji: '✈️', color: '#ec4899' },
+  { id: 'airplanes', stage: 5, name_en: 'Airplanes', name_ko: '비행기', desc_en: 'Fly through the sky in a machine. Grants +3 Money and +3 Consensus immediately.', desc_ko: '기계를 타고 하늘을 날아요. 즉시 자금 +3, 사회적 합의 +3을 얻습니다.', cost: { science: 7, money: 5, consensus: 3 }, prereqs: ['engines'], emoji: '✈️', color: '#ec4899', bonus: { money: 3, consensus: 3 }, bonusDesc_en: '+3 Money, +3 Consensus', bonusDesc_ko: '자금 +3, 사회적 합의 +3', deadEnd: true },
 
   // Stage 6
   { id: 'rockets', stage: 6, name_en: 'Rocket Engines', name_ko: '로켓 엔진', desc_en: 'Build engines powerful enough to reach space.', desc_ko: '우주까지 갈 수 있는 강력한 엔진을 만들어요.', cost: { science: 9, money: 7, consensus: 3 }, prereqs: ['engines', 'chemistry'], emoji: '🚀', color: '#06b6d4' },
