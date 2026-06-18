@@ -135,28 +135,6 @@ export const translations = {
     // Target selection
     chooseTarget: 'Choose a country:',
 
-    // Full Tech Tree
-    viewFullTechTree: 'View Full Technology Tree',
-    viewFullTechTreeDesc: 'See every technology and the paths leading to space.',
-    fullTechTree: 'Full Technology Tree',
-    backToGame: 'Back to Game',
-    scrollSideways: 'Scroll sideways to explore the full path.',
-    coreTech: 'Core',
-    optionalTech: 'Optional',
-    techStatusUnlocked: 'Unlocked',
-    techStatusAvailable: 'Available',
-    techStatusNeedResources: 'Need Resources',
-    techStatusLocked: 'Locked',
-    prerequisite: 'Prerequisite',
-    unlocks: 'Unlocks',
-    permanentEffect: 'Permanent Effect',
-    directPath: 'Direct Path to Space',
-    economyPath: 'Economy Path',
-    sciencePath: 'Science Path',
-    flightPath: 'Flight Path',
-    requiredForMission: 'Required for Mission',
-    returnToPurchase: 'Return to the Technology panel to research this technology.',
-
     // Misc
     turn: 'Turn',
     turnNum: 'Turn',
@@ -281,28 +259,6 @@ export const translations = {
     howStep5: '우주 임무 3개를 모두 완료하면 승리합니다!',
 
     chooseTarget: '국가를 선택하세요:',
-
-    // Full Tech Tree
-    viewFullTechTree: '전체 기술 트리 보기',
-    viewFullTechTreeDesc: '모든 기술과 우주로 이어지는 경로를 확인하세요.',
-    fullTechTree: '전체 기술 트리',
-    backToGame: '게임으로 돌아가기',
-    scrollSideways: '옆으로 스크롤하여 전체 경로를 살펴보세요.',
-    coreTech: '핵심',
-    optionalTech: '선택',
-    techStatusUnlocked: '해금됨',
-    techStatusAvailable: '연구 가능',
-    techStatusNeedResources: '자원 부족',
-    techStatusLocked: '잠김',
-    prerequisite: '필요',
-    unlocks: '해금',
-    permanentEffect: '영구 효과',
-    directPath: '우주 직행 경로',
-    economyPath: '경제 경로',
-    sciencePath: '과학 경로',
-    flightPath: '비행 경로',
-    requiredForMission: '임무 조건',
-    returnToPurchase: '이 기술을 연구하려면 기술 패널로 돌아가세요.',
 
     turn: '턴',
     turnNum: '턴',

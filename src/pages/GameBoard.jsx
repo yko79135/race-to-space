@@ -1,26 +1,26 @@
 import React, { useState, useCallback } from 'react';
 import { useLanguage } from '../game/LanguageContext';
-import { COUNTRY_COLORS, getAvailableTechs, missions as allMissions } from '../game/gameData';
+import { COUNTRY_COLORS } from '../game/gameData';
 import {
   createPlayer, createGameState, getCurrentPlayer,
   drawToFull, drawExtraCards, playCard, discardCard,
   buyTechnology, completeMission, drawEvent, endTurn,
   canBuyTech, canAttemptMission,
   MAX_HAND_SIZE, MAX_PLAYS_PER_TURN, MAX_DISCARDS_PER_TURN,
+  applyResources,
 } from '../game/gameState';
 import StarBackground from '../components/game/StarBackground';
 import LanguageToggle from '../components/game/LanguageToggle';
+import ResourceBar from '../components/game/ResourceBar';
 import CardComponent from '../components/game/CardComponent';
-import TechnologyPanel from '../components/game/TechnologyPanel';
-import MissionPanel from '../components/game/MissionPanel';
+import TechScreen from '../components/game/TechScreen';
+import MissionScreen from '../components/game/MissionScreen';
 import EventCard from '../components/game/EventCard';
 import TransitionScreen from '../components/game/TransitionScreen';
-import FullTechnologyTree from '../components/game/FullTechnologyTree';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Rocket, FlaskConical, Trophy, Globe2, GitBranch } from 'lucide-react';
+import { Rocket, FlaskConical, Trophy, ChevronDown, ChevronUp } from 'lucide-react';
 
-// ── Victory screen ────────────────────────────────────────────────────────────
-function VictoryScreen({ winner, turn, onPlayAgain, onReturnToMenu }) {
+function VictoryScreen({ winner, players, turn, onPlayAgain, onReturnToMenu }) {
   const { t } = useLanguage();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
@@ -47,36 +47,6 @@ function VictoryScreen({ winner, turn, onPlayAgain, onReturnToMenu }) {
   );
 }
 
-// ── Other players progress strip ──────────────────────────────────────────────
-function OtherPlayersStrip({ players, currentPlayerId, lang }) {
-  const others = players.filter(p => p.id !== currentPlayerId);
-  if (others.length === 0) return null;
-  return (
-    <div className="flex gap-2 flex-wrap">
-      {others.map(p => {
-        const color = COUNTRY_COLORS.find(c => c.id === p.colorId) || COUNTRY_COLORS[0];
-        return (
-          <div key={p.id} className="flex items-center gap-1.5 bg-card border border-border rounded-lg px-2.5 py-1.5 text-xs">
-            <span
-              className="w-5 h-5 rounded-full flex items-center justify-center text-sm border"
-              style={{ backgroundColor: color.bg, borderColor: color.value }}
-            >
-              {p.emblem}
-            </span>
-            <span className="font-bold" style={{ color: color.value }}>{p.name}</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-blue-300">🔬{p.resources.science}</span>
-            <span className="text-yellow-300">💰{p.resources.money}</span>
-            <span className="text-green-300">🤝{p.resources.consensus}</span>
-            <span className="text-muted-foreground ml-1">{p.completedMissions.length}/3 🚀</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Main component ─────────────────────────────────────────────────────────────
 export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPlayAgain }) {
   const { t, lang } = useLanguage();
 
@@ -85,78 +55,73 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
     return createGameState(players);
   });
 
-  const [sidePanelTab, setSidePanelTab] = useState('technologies');
+  const [activeView, setActiveView] = useState('board'); // 'board' | 'technology' | 'missions'
+  const [showHand, setShowHand] = useState(true);
   const [notification, setNotification] = useState(null);
-  const [electricityChoice, setElectricityChoice] = useState(null);
-  const [showFullTechTree, setShowFullTechTree] = useState(false); // null | 'science' | 'money'
 
   const currentPlayer = getCurrentPlayer(gameState);
   const colorObj = COUNTRY_COLORS.find(c => c.id === currentPlayer.colorId) || COUNTRY_COLORS[0];
-  const playsRemaining = MAX_PLAYS_PER_TURN - gameState.playsThisTurn;
 
-  // Badges for tab hints
-  const availableTechs = getAvailableTechs(currentPlayer.unlockedTechs);
-  const canAffordTech = availableTechs.some(tech => canBuyTech(currentPlayer, tech));
-  const missionReady = allMissions.some(m =>
-    !currentPlayer.completedMissions.includes(m.id) && canAttemptMission(currentPlayer, m)
-  );
-
-  const notify = useCallback((msg) => {
+  const notify = (msg) => {
     setNotification(msg);
-    setTimeout(() => setNotification(null), 2200);
-  }, []);
-
-  // ── Handlers ────────────────────────────────────────────────────────────────
-  const hasElectricity = currentPlayer.unlockedTechs.includes('electricity');
-
-  const handleElectricityChoiceAndDraw = useCallback((choice) => {
-    setElectricityChoice(null);
-    // Store the choice on the player before drawing
-    setGameState(s => {
-      const updated = {
-        ...s,
-        players: s.players.map((p, i) =>
-          i === s.currentPlayerIndex ? { ...p, electricityChoice: choice } : p
-        ),
-      };
-      return drawToFull(updated);
-    });
-  }, []);
+    setTimeout(() => setNotification(null), 2000);
+  };
 
   const handleDraw = useCallback(() => {
-    if (currentPlayer.hand.length >= MAX_HAND_SIZE) { notify(t('alreadyDrawn')); return; }
-    if (hasElectricity) {
-      setElectricityChoice('pending'); // show the choice UI
+    if (currentPlayer.hand.length >= MAX_HAND_SIZE) {
+      notify(t('alreadyDrawn'));
       return;
     }
     setGameState(s => drawToFull(s));
-  }, [currentPlayer, t, notify, hasElectricity]);
+  }, [currentPlayer, t]);
 
   const handlePlayCard = useCallback((card) => {
-    if (gameState.playsThisTurn >= MAX_PLAYS_PER_TURN) { notify(t('cantPlay')); return; }
+    if (gameState.playsThisTurn >= MAX_PLAYS_PER_TURN) {
+      notify(t('cantPlay'));
+      return;
+    }
     let newState = playCard(gameState, card);
-    if (card.actionType === 'draw2') newState = drawExtraCards(newState, 2);
+    // handle draw2 action
+    if (card.actionType === 'draw2') {
+      newState = drawExtraCards(newState, 2);
+    }
+    // handle targetBoth/targetOther — for simplicity apply to current player
     setGameState(newState);
-  }, [gameState, t, notify]);
+  }, [gameState, t]);
 
   const handleDiscardCard = useCallback((card) => {
-    if (gameState.discardsThisTurn >= MAX_DISCARDS_PER_TURN) { notify(t('cantDiscard')); return; }
+    if (gameState.discardsThisTurn >= MAX_DISCARDS_PER_TURN) {
+      notify(t('cantDiscard'));
+      return;
+    }
     setGameState(s => discardCard(s, card));
-  }, [gameState, t, notify]);
+  }, [gameState, t]);
 
   const handleBuyTech = useCallback((tech) => {
-    if (gameState.playsThisTurn >= MAX_PLAYS_PER_TURN) { notify(t('cantPlay')); return; }
-    if (!canBuyTech(currentPlayer, tech)) { notify(t('notEnoughResources')); return; }
+    if (gameState.playsThisTurn >= MAX_PLAYS_PER_TURN) {
+      notify(t('cantPlay'));
+      return;
+    }
+    if (!canBuyTech(currentPlayer, tech)) {
+      notify(t('notEnoughResources'));
+      return;
+    }
     setGameState(s => buyTechnology(s, tech));
     notify(t('techUnlocked') + ': ' + (lang === 'ko' ? tech.name_ko : tech.name_en));
-  }, [gameState, currentPlayer, lang, t, notify]);
+  }, [gameState, currentPlayer, lang, t]);
 
   const handleAttemptMission = useCallback((mission) => {
-    if (gameState.playsThisTurn >= MAX_PLAYS_PER_TURN) { notify(t('cantPlay')); return; }
-    if (!canAttemptMission(currentPlayer, mission)) { notify(t('notEnoughResources')); return; }
+    if (gameState.playsThisTurn >= MAX_PLAYS_PER_TURN) {
+      notify(t('cantPlay'));
+      return;
+    }
+    if (!canAttemptMission(currentPlayer, mission)) {
+      notify(t('notEnoughResources'));
+      return;
+    }
     setGameState(s => completeMission(s, mission));
     notify(t('missionCompleted') + ': ' + (lang === 'ko' ? mission.name_ko : mission.name_en));
-  }, [gameState, currentPlayer, lang, t, notify]);
+  }, [gameState, currentPlayer, lang, t]);
 
   const handleDrawEvent = useCallback(() => {
     setGameState(s => drawEvent(s));
@@ -174,7 +139,42 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
     setGameState(s => endTurn(s));
   }, []);
 
-  // ── Special screens (use activeView pattern) ────────────────────────────────
+  // --- Sub-view renders (fully replace the board) ---
+  if (activeView === 'technology') {
+    return (
+      <TechScreen
+        player={currentPlayer}
+        playsRemaining={MAX_PLAYS_PER_TURN - gameState.playsThisTurn}
+        onBuy={handleBuyTech}
+        onClose={() => setActiveView('board')}
+      />
+    );
+  }
+
+  if (activeView === 'missions') {
+    return (
+      <MissionScreen
+        player={currentPlayer}
+        playsRemaining={MAX_PLAYS_PER_TURN - gameState.playsThisTurn}
+        onAttempt={handleAttemptMission}
+        onClose={() => setActiveView('board')}
+      />
+    );
+  }
+
+  // Phase guidance message
+  const getGuide = () => {
+    const { phase, playsThisTurn } = gameState;
+    if (phase === 'draw') return t('guide_draw');
+    if (phase === 'play') {
+      if (playsThisTurn >= MAX_PLAYS_PER_TURN) return t('guide_allPlayed');
+      const canAffordAny = canBuyTech(currentPlayer, { cost: { science: 0, money: 0, consensus: 0 }, prereqs: [] });
+      return t('guide_play');
+    }
+    if (phase === 'event') return t('guide_event');
+    return '';
+  };
+
   const { phase, winner } = gameState;
 
   if (winner) {
@@ -182,13 +182,19 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
     return (
       <>
         <StarBackground />
-        <VictoryScreen winner={winnerPlayer} turn={gameState.turn} onPlayAgain={onPlayAgain} onReturnToMenu={onReturnToMenu} />
+        <VictoryScreen
+          winner={winnerPlayer}
+          players={gameState.players}
+          turn={gameState.turn}
+          onPlayAgain={onPlayAgain}
+          onReturnToMenu={onReturnToMenu}
+        />
       </>
     );
   }
 
   if (phase === 'transition') {
-    const nextPlayer = gameState.players[gameState.currentPlayerIndex % gameState.players.length];
+    const nextPlayer = gameState.players[(gameState.currentPlayerIndex) % gameState.players.length];
     return (
       <>
         <StarBackground />
@@ -197,330 +203,155 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
     );
   }
 
-  // ── Guide message ───────────────────────────────────────────────────────────
-  const getGuide = () => {
-    if (phase === 'draw') return t('guide_draw');
-    if (phase === 'play') {
-      if (gameState.playsThisTurn >= MAX_PLAYS_PER_TURN) return t('guide_allPlayed');
-      return t('guide_play');
-    }
-    if (phase === 'event') return t('guide_event');
-    return '';
-  };
-
-  // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background relative">
-
-      {/* Full Technology Tree overlay — informational only, no game state change */}
-      {showFullTechTree && (
-        <FullTechnologyTree
-          player={currentPlayer}
-          onClose={() => setShowFullTechTree(false)}
-        />
-      )}
+    <div className="min-h-screen relative overflow-hidden">
       <StarBackground />
       <LanguageToggle />
 
-      {/* Electricity choice modal */}
-      <AnimatePresence>
-        {electricityChoice === 'pending' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
-          >
-            <motion.div
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.8 }}
-              className="bg-card border-2 border-yellow-400 rounded-2xl p-6 max-w-xs w-full text-center"
-            >
-              <div className="text-4xl mb-3">💡</div>
-              <h3 className="text-lg font-heading font-bold mb-1">
-                {lang === 'ko' ? '전기 보너스' : 'Electricity Bonus'}
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {lang === 'ko' ? '과학력 1 또는 자금 1을 선택하세요.' : 'Choose: gain 1 Science or 1 Money.'}
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleElectricityChoiceAndDraw('science')}
-                  className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-500 transition-colors"
-                >
-                  🔬 {lang === 'ko' ? '과학력' : 'Science'}
-                </button>
-                <button
-                  onClick={() => handleElectricityChoiceAndDraw('money')}
-                  className="flex-1 py-3 bg-yellow-500 text-yellow-950 font-bold rounded-xl hover:bg-yellow-400 transition-colors"
-                >
-                  💰 {lang === 'ko' ? '자금' : 'Money'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Event overlay — floats above everything */}
+      {/* Event overlay */}
       <AnimatePresence>
         {phase === 'eventReveal' && gameState.lastEvent && (
           <EventCard event={gameState.lastEvent} onContinue={handleEventContinue} />
         )}
       </AnimatePresence>
 
-      {/* Notification toast */}
+      {/* Notification */}
       <AnimatePresence>
         {notification && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-bold shadow-lg pointer-events-none"
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-bold shadow-lg"
           >
             {notification}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── TOP HEADER ─────────────────────────────────────────────────────── */}
-      <div className="relative z-10 border-b border-border/50 bg-background/85 backdrop-blur sticky top-0">
-        <div className="max-w-screen-xl mx-auto px-3 py-2 flex flex-wrap items-center gap-3">
+      {/* Main layout */}
+      <div className="relative z-10 flex flex-col h-screen max-h-screen">
 
-          {/* Player badge */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 bg-background/80 backdrop-blur flex-shrink-0">
+          <div className="flex items-center gap-2">
             <div
-              className="w-9 h-9 rounded-full flex items-center justify-center text-xl border-2 flex-shrink-0"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-xl border-2"
               style={{ backgroundColor: colorObj.bg, borderColor: colorObj.value }}
             >
               {currentPlayer.emblem}
             </div>
             <div>
-              <p className="text-xs text-muted-foreground leading-none">{t('turn')} {gameState.turn}</p>
-              <p className="text-sm font-bold leading-tight" style={{ color: colorObj.value }}>{currentPlayer.name}</p>
+              <p className="text-xs text-muted-foreground">{t('turn')} {gameState.turn}</p>
+              <p className="text-sm font-bold" style={{ color: colorObj.value }}>{currentPlayer.name}</p>
             </div>
           </div>
 
-          <div className="w-px h-8 bg-border/50 hidden sm:block" />
-
-          {/* Resources */}
-          <div className="flex items-center gap-3 text-sm font-bold flex-wrap">
-            <span className="flex items-center gap-1 text-blue-300">🔬 <span>{currentPlayer.resources.science}</span></span>
-            <span className="flex items-center gap-1 text-yellow-300">💰 <span>{currentPlayer.resources.money}</span></span>
-            <span className="flex items-center gap-1 text-green-300">🤝 <span>{currentPlayer.resources.consensus}</span></span>
-          </div>
-
-          <div className="w-px h-8 bg-border/50 hidden sm:block" />
-
-          {/* Turn stats */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span>🎴 {gameState.playsThisTurn}/{MAX_PLAYS_PER_TURN}</span>
-            <span>🗑️ {gameState.discardsThisTurn}/{MAX_DISCARDS_PER_TURN}</span>
-            <span>📦 {gameState.mainDeck.length}</span>
-          </div>
-
-          <div className="w-px h-8 bg-border/50 hidden sm:block" />
-
-          {/* Mission dots */}
-          <div className="flex items-center gap-1.5">
-            {['test_rocket', 'launch_satellite', 'crewed_spaceflight'].map(mid => (
+          {/* Mission progress dots */}
+          <div className="flex items-center gap-1">
+            {['test_rocket', 'launch_satellite', 'crewed_spaceflight'].map((mid, i) => (
               <div
                 key={mid}
                 className={`w-3 h-3 rounded-full border-2 ${currentPlayer.completedMissions.includes(mid) ? 'bg-yellow-400 border-yellow-300' : 'bg-muted border-border'}`}
+                title={mid}
               />
             ))}
-            <span className="text-xs text-muted-foreground">{currentPlayer.completedMissions.length}/3</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── MAIN CONTENT ────────────────────────────────────────────────────── */}
-      <div className="relative z-10 max-w-screen-xl mx-auto px-3 py-3">
-
-        {/* Other players */}
-        <div className="mb-3">
-          <OtherPlayersStrip players={gameState.players} currentPlayerId={currentPlayer.id} lang={lang} />
-        </div>
-
-        {/* Two-column grid: left=play area, right=side panel */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] gap-4">
-
-          {/* ── LEFT: PLAY AREA ─────────────────────────────────────────────── */}
-          <div className="space-y-3">
-
-            {/* Guidance banner */}
-            <div className="bg-primary/10 border border-primary/30 rounded-xl px-4 py-2.5 text-sm text-primary font-medium text-center">
-              {getGuide()}
-            </div>
-
-            {/* Deck info + action buttons */}
-            <div className="bg-card border border-border rounded-xl p-3 space-y-3">
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>🃏 {lang === 'ko' ? '메인 덱' : 'Main Deck'}: {gameState.mainDeck.length}</span>
-                <span>📋 {lang === 'ko' ? '버린 카드' : 'Discard'}: {(gameState.discardPile || []).length}</span>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex flex-wrap gap-2">
-                {phase === 'draw' && (
-                  <button
-                    onClick={handleDraw}
-                    className="flex-1 py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/80 transition-colors text-sm"
-                  >
-                    🃏 {t('drawCards')} ({currentPlayer.hand.length}/{MAX_HAND_SIZE})
-                  </button>
-                )}
-
-                {phase === 'play' && (
-                  <>
-                    <button
-                      onClick={handleDrawEvent}
-                      className="flex-1 py-2.5 bg-purple-600/80 text-white font-bold rounded-xl hover:bg-purple-600 transition-colors text-sm"
-                    >
-                      🎲 {t('drawEventCard')}
-                    </button>
-                    <button
-                      onClick={handleEndTurn}
-                      className="flex-1 py-2.5 bg-secondary text-foreground font-bold rounded-xl hover:bg-secondary/80 transition-colors text-sm border border-border"
-                    >
-                      {t('endTurn')} →
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Plays remaining indicator */}
-              {phase === 'play' && (
-                <div className="flex gap-1 items-center">
-                  <span className="text-xs text-muted-foreground mr-1">{lang === 'ko' ? '행동:' : 'Actions:'}</span>
-                  {Array.from({ length: MAX_PLAYS_PER_TURN }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={`w-4 h-4 rounded-full border-2 transition-all ${i < gameState.playsThisTurn ? 'bg-primary/30 border-primary/30' : 'bg-primary border-primary'}`}
-                    />
-                  ))}
-                  <span className="text-xs text-muted-foreground ml-1">
-                    {playsRemaining} {lang === 'ko' ? '남음' : 'left'}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* ── HAND ─────────────────────────────────────────────────────── */}
-            <div className="bg-card border border-border rounded-xl p-3">
-              <h3 className="text-sm font-bold mb-2.5 text-foreground">
-                🃏 {t('yourHand')} <span className="text-muted-foreground font-normal">({currentPlayer.hand.length} {t('cardsInHand')})</span>
-              </h3>
-
-              {currentPlayer.hand.length === 0 ? (
-                <div className="text-center text-muted-foreground py-8">
-                  <p className="text-4xl mb-2">🃏</p>
-                  <p className="text-sm">{phase === 'draw' ? t('guide_draw') : (lang === 'ko' ? '손에 카드 없음' : 'No cards in hand')}</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto pb-2">
-                  <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
-                    {currentPlayer.hand.map(card => (
-                      <div key={card.uid} className="w-44 flex-shrink-0">
-                        <CardComponent
-                          card={card}
-                          canPlay={phase === 'play' && gameState.playsThisTurn < MAX_PLAYS_PER_TURN}
-                          canDiscard={phase === 'play' && gameState.discardsThisTurn < MAX_DISCARDS_PER_TURN}
-                          onPlay={handlePlayCard}
-                          onDiscard={handleDiscardCard}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <span className="text-xs text-muted-foreground ml-1">{currentPlayer.completedMissions.length}/3</span>
           </div>
 
-          {/* ── RIGHT: SIDE PANEL ────────────────────────────────────────────── */}
-          <aside className="space-y-3">
+          <ResourceBar resources={currentPlayer.resources} />
+        </div>
 
-            {/* View Full Tech Tree entry button */}
+        {/* Phase guidance */}
+        <div className="px-3 py-2 flex-shrink-0">
+          <div className="bg-primary/10 border border-primary/30 rounded-xl px-4 py-2 text-sm text-primary font-medium text-center">
+            {getGuide()}
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="px-3 pb-2 flex gap-2 flex-shrink-0 flex-wrap">
+          {phase === 'draw' && (
             <button
-              type="button"
-              onClick={() => setShowFullTechTree(true)}
-              className="w-full flex items-center gap-3 bg-card border border-border hover:border-primary/50 hover:bg-primary/5 rounded-xl p-3 text-left transition-all group"
+              onClick={handleDraw}
+              className="flex-1 py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/80 transition-colors text-sm"
             >
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                <GitBranch className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-foreground leading-tight">
-                  {t('viewFullTechTree')}
-                </h3>
-                <p className="text-[11px] text-muted-foreground leading-tight mt-0.5 truncate">
-                  {t('viewFullTechTreeDesc')}
-                </p>
-              </div>
-              <div className="text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
+              🃏 {t('drawCards')} ({currentPlayer.hand.length}/{MAX_HAND_SIZE})
             </button>
+          )}
 
-            {/* Tab switcher */}
-            <div className="flex rounded-xl overflow-hidden border border-border bg-card">
+          {phase === 'play' && (
+            <>
               <button
-                onClick={() => setSidePanelTab('technologies')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-bold transition-colors relative
-                  ${sidePanelTab === 'technologies' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                onClick={() => setActiveView('technology')}
+                className="flex-1 py-2.5 bg-blue-600/80 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors text-sm flex items-center justify-center gap-1"
               >
                 <FlaskConical className="w-4 h-4" />
-                {lang === 'ko' ? '기술' : 'Technologies'}
-                {canAffordTech && sidePanelTab !== 'technologies' && (
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
-                )}
+                {t('exploreTech')}
               </button>
               <button
-                onClick={() => setSidePanelTab('missions')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-bold transition-colors relative
-                  ${sidePanelTab === 'missions' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                onClick={() => setActiveView('missions')}
+                className="flex-1 py-2.5 bg-yellow-600/80 text-white font-bold rounded-xl hover:bg-yellow-600 transition-colors text-sm flex items-center justify-center gap-1"
               >
                 <Rocket className="w-4 h-4" />
-                {lang === 'ko' ? '임무' : 'Missions'}
-                {missionReady && sidePanelTab !== 'missions' && (
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-                )}
+                {t('viewMissions')}
               </button>
-            </div>
+              <button
+                onClick={handleDrawEvent}
+                className="flex-1 py-2.5 bg-purple-600/80 text-white font-bold rounded-xl hover:bg-purple-600 transition-colors text-sm"
+              >
+                🎲 {t('drawEventCard')}
+              </button>
+              <button
+                onClick={handleEndTurn}
+                className="flex-1 py-2.5 bg-secondary text-foreground font-bold rounded-xl hover:bg-secondary/80 transition-colors text-sm border border-border"
+              >
+                {t('endTurn')}
+              </button>
+            </>
+          )}
+        </div>
 
-            {/* Affordability hint */}
-            {phase === 'play' && sidePanelTab === 'technologies' && canAffordTech && (
-              <div className="bg-teal-950/40 border border-teal-500/40 rounded-xl px-3 py-2 text-sm text-teal-300 font-medium text-center">
-                {lang === 'ko' ? '✨ 새로운 기술을 해금할 수 있어요!' : '✨ You can unlock a new technology!'}
-              </div>
-            )}
-            {phase === 'play' && sidePanelTab === 'missions' && missionReady && (
-              <div className="bg-yellow-950/40 border border-yellow-500/40 rounded-xl px-3 py-2 text-sm text-yellow-300 font-medium text-center">
-                {lang === 'ko' ? '🚀 우주 임무를 수행할 수 있어요!' : '🚀 A space mission is ready!'}
-              </div>
-            )}
+        {/* Stats row */}
+        <div className="px-3 pb-1 flex gap-3 text-xs text-muted-foreground flex-shrink-0">
+          <span>🎴 {t('cardsPlayed')}: {gameState.playsThisTurn}/{MAX_PLAYS_PER_TURN}</span>
+          <span>🗑️ {t('cardsDiscarded')}: {gameState.discardsThisTurn}/{MAX_DISCARDS_PER_TURN}</span>
+          <span>📦 {t('deckRemaining')}: {gameState.mainDeck.length}</span>
+        </div>
 
-            {/* Panel content */}
-            <div className="bg-card border border-border rounded-xl p-3 overflow-y-auto max-h-[60vh]">
-              {sidePanelTab === 'technologies' ? (
-                <TechnologyPanel
-                  player={currentPlayer}
-                  playsRemaining={phase === 'play' ? playsRemaining : 0}
-                  onBuy={handleBuyTech}
-                />
+        {/* Hand */}
+        <div className="flex-1 overflow-hidden flex flex-col px-3 pb-3">
+          <button
+            onClick={() => setShowHand(h => !h)}
+            className="flex items-center gap-2 text-sm font-bold text-foreground mb-2 hover:text-primary transition-colors"
+          >
+            {showHand ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            {t('yourHand')} ({currentPlayer.hand.length} {t('cardsInHand')})
+          </button>
+
+          {showHand && (
+            <div className="flex-1 overflow-y-auto">
+              {currentPlayer.hand.length === 0 ? (
+                <div className="text-center text-muted-foreground py-10">
+                  <p className="text-4xl mb-2">🃏</p>
+                  <p className="text-sm">{phase === 'draw' ? t('guide_draw') : 'No cards in hand'}</p>
+                </div>
               ) : (
-                <MissionPanel
-                  player={currentPlayer}
-                  playsRemaining={phase === 'play' ? playsRemaining : 0}
-                  onAttempt={handleAttemptMission}
-                />
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {currentPlayer.hand.map(card => (
+                    <CardComponent
+                      key={card.uid}
+                      card={card}
+                      canPlay={phase === 'play' && gameState.playsThisTurn < MAX_PLAYS_PER_TURN}
+                      canDiscard={phase === 'play' && gameState.discardsThisTurn < MAX_DISCARDS_PER_TURN}
+                      onPlay={handlePlayCard}
+                      onDiscard={handleDiscardCard}
+                    />
+                  ))}
+                </div>
               )}
             </div>
-          </aside>
-
+          )}
         </div>
       </div>
     </div>
