@@ -95,7 +95,10 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
   }, []);
 
   const handleDraw = useCallback(() => {
-    if (currentPlayer.hand.length >= MAX_HAND_SIZE) { notify(t('alreadyDrawn')); return; }
+    if (currentPlayer.hand.length >= MAX_HAND_SIZE) {
+      setGameState(s => ({ ...s, phase: 'play' }));
+      return;
+    }
     setGameState(s => drawToFull(s));
   }, [currentPlayer, t, notify]);
 
@@ -283,7 +286,7 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
                   onClick={handleDraw}
                   className="flex-1 py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/80 transition-colors text-sm"
                 >
-                  🃏 {t('drawCards')} ({currentPlayer.hand.length}/{MAX_HAND_SIZE})
+                  {currentPlayer.hand.length >= MAX_HAND_SIZE ? (lang === 'ko' ? '▶️ 플레이 시작' : '▶️ Start Playing') : `🃏 ${t('drawCards')} (${currentPlayer.hand.length}/${MAX_HAND_SIZE})`}
                 </button>
               )}
 
