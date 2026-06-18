@@ -138,6 +138,14 @@ export function applyResourcesByPlayerId(players, playerId, delta) {
 }
 
 export function playCard(state, card) {
+  // For target cards, don't consume action yet — set pending instead
+  if (card.actionType === 'targetBoth' || card.actionType === 'targetOther') {
+    return {
+      ...state,
+      pendingAction: { card },
+    };
+  }
+
   const player = getCurrentPlayer(state);
   const newHand = player.hand.filter(c => c.uid !== card.uid);
   const newDiscard = [...state.discardPile, card];
@@ -154,9 +162,7 @@ export function playCard(state, card) {
     if (card.actionType === 'gainResource') {
       players = applyResources(players, state.currentPlayerIndex, card.effect);
     }
-    if (card.actionType === 'draw2') {
-      // handled separately after state update
-    }
+    // draw2 handled separately after state update
   }
 
   return {
@@ -164,6 +170,40 @@ export function playCard(state, card) {
     players,
     discardPile: newDiscard,
     playsThisTurn: state.playsThisTurn + 1,
+  };
+}
+
+// Resolve a pending target card after a target player has been chosen
+export function resolveTargetCard(state, targetPlayerId) {
+  const { pendingAction } = state;
+  if (!pendingAction) return state;
+
+  const card = pendingAction.card;
+  const currentIdx = state.currentPlayerIndex;
+  const targetIdx = state.players.findIndex(p => p.id === targetPlayerId);
+
+  const newHand = state.players[currentIdx].hand.filter(c => c.uid !== card.uid);
+  const newDiscard = [...state.discardPile, card];
+
+  let players = state.players.map((p, i) =>
+    i === currentIdx ? { ...p, hand: newHand } : p
+  );
+
+  if (card.actionType === 'targetBoth') {
+    // Both current player and target gain the resource
+    players = applyResources(players, currentIdx, card.effect);
+    players = applyResources(players, targetIdx, card.effect);
+  } else if (card.actionType === 'targetOther') {
+    // Only target is affected (can be negative)
+    players = applyResources(players, targetIdx, card.effect);
+  }
+
+  return {
+    ...state,
+    players,
+    discardPile: newDiscard,
+    playsThisTurn: state.playsThisTurn + 1,
+    pendingAction: null,
   };
 }
 

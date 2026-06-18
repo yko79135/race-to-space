@@ -5,6 +5,7 @@ import {
   createPlayer, createGameState, getCurrentPlayer,
   drawToFull, drawExtraCards, playCard, discardCard,
   buyTechnology, completeMission, drawEvent, endTurn,
+  resolveTargetCard,
   canBuyTech, canAttemptMission,
   MAX_HAND_SIZE, MAX_PLAYS_PER_TURN, MAX_DISCARDS_PER_TURN,
 } from '../game/gameState';
@@ -128,6 +129,14 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
     notify(t('missionCompleted') + ': ' + (lang === 'ko' ? mission.name_ko : mission.name_en));
   }, [gameState, currentPlayer, lang, t, notify]);
 
+  const handleSelectTarget = useCallback((targetPlayerId) => {
+    setGameState(s => resolveTargetCard(s, targetPlayerId));
+  }, []);
+
+  const handleCancelTarget = useCallback(() => {
+    setGameState(s => ({ ...s, pendingAction: null }));
+  }, []);
+
   const handleDrawEvent = useCallback(() => {
     setGameState(s => drawEvent(s));
   }, []);
@@ -190,6 +199,57 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
       <AnimatePresence>
         {phase === 'eventReveal' && gameState.lastEvent && (
           <EventCard event={gameState.lastEvent} onContinue={handleEventContinue} />
+        )}
+      </AnimatePresence>
+
+      {/* Target selection overlay */}
+      <AnimatePresence>
+        {gameState.pendingAction && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-card border-2 border-primary rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl"
+            >
+              <div className="text-4xl mb-2">{gameState.pendingAction.card.emoji}</div>
+              <h3 className="text-lg font-bold mb-1">
+                {lang === 'ko' ? gameState.pendingAction.card.name_ko : gameState.pendingAction.card.name_en}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {lang === 'ko' ? '대상 국가를 선택하세요' : 'Choose a target country'}
+              </p>
+              <div className="space-y-2 mb-4">
+                {gameState.players
+                  .filter(p => p.id !== currentPlayer.id)
+                  .map(p => {
+                    const col = COUNTRY_COLORS.find(c => c.id === p.colorId) || COUNTRY_COLORS[0];
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => handleSelectTarget(p.id)}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 hover:bg-white/10 transition-colors font-bold"
+                        style={{ borderColor: col.value, color: col.value }}
+                      >
+                        <span className="text-2xl">{p.emblem}</span>
+                        <span>{p.name}</span>
+                      </button>
+                    );
+                  })}
+              </div>
+              <button
+                onClick={handleCancelTarget}
+                className="w-full py-2.5 rounded-xl bg-secondary text-foreground font-medium hover:bg-secondary/80 transition-colors text-sm"
+              >
+                {lang === 'ko' ? '취소' : 'Cancel'}
+              </button>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
