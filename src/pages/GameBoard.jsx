@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useLanguage } from '../game/LanguageContext';
 import { COUNTRY_COLORS } from '../game/gameData';
 import {
@@ -20,7 +20,6 @@ import TransitionScreen from '../components/game/TransitionScreen';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Rocket, FlaskConical, ChevronDown, ChevronUp, Save, FolderOpen } from 'lucide-react';
 
-const SAVE_KEY = 'raceToSpace_save';
 
 // ---- Victory Screen ----
 function VictoryScreen({ winner, turn, onPlayAgain, onReturnToMenu }) {
@@ -73,17 +72,39 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
   const [sidePanelTab, setSidePanelTab] = useState('technologies');
   const [showHand, setShowHand] = useState(true);
   const [notification, setNotification] = useState(null);
+  const fileInputRef = useRef(null);
 
   const handleSave = useCallback(() => {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
-    notify(lang === 'ko' ? '게임이 저장되었습니다! 💾' : 'Game saved! 💾');
+    const blob = new Blob([JSON.stringify(gameState)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `race-to-space-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    notify(lang === 'ko' ? '게임이 다운로드되었습니다! 📥' : 'Game downloaded! 📥');
   }, [gameState, lang]);
 
   const handleLoad = useCallback(() => {
-    const saved = localStorage.getItem(SAVE_KEY);
-    if (!saved) { notify(lang === 'ko' ? '저장된 게임이 없습니다.' : 'No saved game found.'); return; }
-    setGameState(JSON.parse(saved));
-    notify(lang === 'ko' ? '게임을 불러왔습니다! 📂' : 'Game loaded! 📂');
+    fileInputRef.current.click();
+  }, []);
+
+  const handleFileChange = useCallback((e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        setGameState(JSON.parse(event.target.result));
+        notify(lang === 'ko' ? '게임을 불러왔습니다! 📂' : 'Game loaded! 📂');
+      } catch {
+        notify(lang === 'ko' ? '잘못된 파일입니다.' : 'Invalid save file.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   }, [lang]);
 
   const currentPlayer = getCurrentPlayer(gameState);
@@ -402,6 +423,7 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
               <FolderOpen className="w-3.5 h-3.5 text-yellow-400" />
               <span className="hidden sm:inline">{lang === 'ko' ? '불러오기' : 'Load'}</span>
             </button>
+            <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} />
           </div>
         </header>
 
