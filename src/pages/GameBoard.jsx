@@ -17,7 +17,9 @@ import MissionPanel from '../components/game/MissionPanel';
 import EventCard from '../components/game/EventCard';
 import TransitionScreen from '../components/game/TransitionScreen';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Rocket, FlaskConical, ChevronDown, ChevronUp } from 'lucide-react';
+import { Rocket, FlaskConical, ChevronDown, ChevronUp, Save, FolderOpen } from 'lucide-react';
+
+const SAVE_KEY = 'raceToSpace_save';
 
 // ---- Victory Screen ----
 function VictoryScreen({ winner, turn, onPlayAgain, onReturnToMenu }) {
@@ -67,9 +69,21 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
     return createGameState(players);
   });
 
-  const [sidePanelTab, setSidePanelTab] = useState('technologies'); // 'technologies' | 'missions'
+  const [sidePanelTab, setSidePanelTab] = useState('technologies');
   const [showHand, setShowHand] = useState(true);
   const [notification, setNotification] = useState(null);
+
+  const handleSave = useCallback(() => {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+    notify(lang === 'ko' ? '게임이 저장되었습니다! 💾' : 'Game saved! 💾');
+  }, [gameState, lang]);
+
+  const handleLoad = useCallback(() => {
+    const saved = localStorage.getItem(SAVE_KEY);
+    if (!saved) { notify(lang === 'ko' ? '저장된 게임이 없습니다.' : 'No saved game found.'); return; }
+    setGameState(JSON.parse(saved));
+    notify(lang === 'ko' ? '게임을 불러왔습니다! 📂' : 'Game loaded! 📂');
+  }, [lang]);
 
   const currentPlayer = getCurrentPlayer(gameState);
   const colorObj = COUNTRY_COLORS.find(c => c.id === currentPlayer.colorId) || COUNTRY_COLORS[0];
@@ -230,6 +244,18 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
           </div>
 
           <LanguageToggle />
+
+          {/* Save / Load */}
+          <div className="flex items-center gap-1">
+            <button onClick={handleSave} title="Save" className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-secondary/80 border border-border hover:bg-secondary transition-colors text-xs font-medium text-foreground">
+              <Save className="w-3.5 h-3.5 text-primary" />
+              <span className="hidden sm:inline">{lang === 'ko' ? '저장' : 'Save'}</span>
+            </button>
+            <button onClick={handleLoad} title="Load" className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-secondary/80 border border-border hover:bg-secondary transition-colors text-xs font-medium text-foreground">
+              <FolderOpen className="w-3.5 h-3.5 text-yellow-400" />
+              <span className="hidden sm:inline">{lang === 'ko' ? '불러오기' : 'Load'}</span>
+            </button>
+          </div>
         </header>
 
         {/* ── MIDDLE: main area + side panel ── */}
@@ -296,9 +322,9 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
                     <p className="text-sm">{phase === 'draw' ? t('guide_draw') : (lang === 'ko' ? '카드가 없습니다' : 'No cards in hand')}</p>
                   </div>
                 ) : (
-                  <div className="flex gap-3 overflow-x-auto pb-3 snap-x snap-mandatory">
+                  <div className="grid grid-cols-5 gap-2">
                     {currentPlayer.hand.map(card => (
-                      <div key={card.uid} className="snap-start flex-shrink-0">
+                      <div key={card.uid}>
                         <CardComponent
                           card={card}
                           canPlay={phase === 'play' && gameState.playsThisTurn < MAX_PLAYS_PER_TURN}
