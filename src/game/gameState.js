@@ -146,6 +146,14 @@ export function playCard(state, card) {
     };
   }
 
+  // For exchange cards, set pending with type so UI can handle selection
+  if (card.actionType === 'exchangeCards') {
+    return {
+      ...state,
+      pendingAction: { card, type: 'exchangeCards', selectedUids: [] },
+    };
+  }
+
   const player = getCurrentPlayer(state);
   const newHand = player.hand.filter(c => c.uid !== card.uid);
   const newDiscard = [...state.discardPile, card];
@@ -202,6 +210,45 @@ export function resolveTargetCard(state, targetPlayerId) {
     ...state,
     players,
     discardPile: newDiscard,
+    playsThisTurn: state.playsThisTurn + 1,
+    pendingAction: null,
+  };
+}
+
+// Resolve a Research Team exchange: discard selected cards, draw replacements
+export function resolveExchangeCards(state, selectedUids) {
+  const { pendingAction } = state;
+  if (!pendingAction) return state;
+
+  const card = pendingAction.card;
+  const currentIdx = state.currentPlayerIndex;
+  const player = state.players[currentIdx];
+
+  // Remove the Research Team card + selected cards from hand
+  const removedUids = new Set([card.uid, ...selectedUids]);
+  let newHand = player.hand.filter(c => !removedUids.has(c.uid));
+  const discarded = player.hand.filter(c => removedUids.has(c.uid));
+  const newDiscard = [...state.discardPile, ...discarded];
+
+  // Draw replacements (one per selected card)
+  let deck = [...state.mainDeck];
+  let discardPile = [...newDiscard];
+  if (deck.length < selectedUids.length && discardPile.length > 0) {
+    deck = [...deck, ...shuffleDeck(discardPile)];
+    discardPile = [];
+  }
+  const drawn = deck.splice(0, Math.min(selectedUids.length, deck.length));
+  newHand = [...newHand, ...drawn];
+
+  const players = state.players.map((p, i) =>
+    i === currentIdx ? { ...p, hand: newHand } : p
+  );
+
+  return {
+    ...state,
+    players,
+    mainDeck: deck,
+    discardPile: discardPile,
     playsThisTurn: state.playsThisTurn + 1,
     pendingAction: null,
   };

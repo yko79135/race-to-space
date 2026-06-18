@@ -5,7 +5,7 @@ import {
   createPlayer, createGameState, getCurrentPlayer,
   drawToFull, drawExtraCards, playCard, discardCard,
   buyTechnology, completeMission, drawEvent, endTurn,
-  resolveTargetCard,
+  resolveTargetCard, resolveExchangeCards,
   canBuyTech, canAttemptMission,
   MAX_HAND_SIZE, MAX_PLAYS_PER_TURN, MAX_DISCARDS_PER_TURN,
 } from '../game/gameState';
@@ -137,6 +137,26 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
     setGameState(s => ({ ...s, pendingAction: null }));
   }, []);
 
+  const handleToggleExchangeCard = useCallback((uid) => {
+    setGameState(s => {
+      if (!s.pendingAction) return s;
+      const selected = s.pendingAction.selectedUids || [];
+      const already = selected.includes(uid);
+      if (!already && selected.length >= 2) return s; // max 2
+      return {
+        ...s,
+        pendingAction: {
+          ...s.pendingAction,
+          selectedUids: already ? selected.filter(u => u !== uid) : [...selected, uid],
+        },
+      };
+    });
+  }, []);
+
+  const handleConfirmExchange = useCallback(() => {
+    setGameState(s => resolveExchangeCards(s, s.pendingAction.selectedUids));
+  }, []);
+
   const handleDrawEvent = useCallback(() => {
     setGameState(s => drawEvent(s));
   }, []);
@@ -248,6 +268,70 @@ export default function GameBoard({ players: playerConfigs, onReturnToMenu, onPl
               >
                 {lang === 'ko' ? '취소' : 'Cancel'}
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Card exchange overlay (Research Team) */}
+      <AnimatePresence>
+        {gameState.pendingAction?.type === 'exchangeCards' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-card border-2 border-orange-400 rounded-2xl p-5 max-w-lg w-full shadow-2xl"
+            >
+              <div className="text-center mb-4">
+                <div className="text-4xl mb-1">👩‍🔬</div>
+                <h3 className="text-lg font-bold">{lang === 'ko' ? '연구팀' : 'Research Team'}</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {lang === 'ko' ? '교환할 카드 2장을 선택하세요' : 'Select 2 cards to exchange'}
+                  {' '}({gameState.pendingAction.selectedUids.length}/2)
+                </p>
+              </div>
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                {currentPlayer.hand
+                  .filter(c => c.uid !== gameState.pendingAction.card.uid)
+                  .map(c => {
+                    const isSelected = gameState.pendingAction.selectedUids.includes(c.uid);
+                    return (
+                      <button
+                        key={c.uid}
+                        onClick={() => handleToggleExchangeCard(c.uid)}
+                        className={`rounded-xl border-2 p-2 flex flex-col items-center gap-1 transition-all
+                          ${isSelected ? 'border-orange-400 bg-orange-900/40 scale-105' : 'border-border bg-card/60 hover:border-orange-300'}`}
+                      >
+                        <span className="text-2xl">{c.emoji}</span>
+                        <span className="text-[10px] text-center font-medium leading-tight text-white/80 line-clamp-2">
+                          {lang === 'ko' ? c.name_ko : c.name_en}
+                        </span>
+                        {isSelected && <span className="text-[10px] text-orange-300 font-bold">✓</span>}
+                      </button>
+                    );
+                  })}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCancelTarget}
+                  className="flex-1 py-2.5 rounded-xl bg-secondary text-foreground font-medium hover:bg-secondary/80 transition-colors text-sm"
+                >
+                  {lang === 'ko' ? '취소' : 'Cancel'}
+                </button>
+                <button
+                  onClick={handleConfirmExchange}
+                  disabled={gameState.pendingAction.selectedUids.length !== 2}
+                  className="flex-1 py-2.5 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-400 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {lang === 'ko' ? '교환하기 🔄' : 'Exchange 🔄'}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
