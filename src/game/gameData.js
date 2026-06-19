@@ -104,6 +104,10 @@ export const mainDeckTemplate = [
   { id: 'res_mix_1', type: 'resource', name_en: 'Growing Town', name_ko: '성장하는 마을', desc_en: 'Gain 1 Money and 1 Consensus.', desc_ko: '자금 1과 사회적 합의 1을 얻습니다.', effect: { money: 1, consensus: 1 }, emoji: '🏘️', color: '#8b5cf6', count: 4 },
   { id: 'res_mix_2', type: 'resource', name_en: 'University Grant', name_ko: '대학 지원금', desc_en: 'Gain 2 Science and 1 Money.', desc_ko: '과학력 2와 자금 1을 얻습니다.', effect: { science: 2, money: 1 }, emoji: '🎓', color: '#8b5cf6', count: 3 },
 
+  // Advanced Science Cards — only appear after reaching Modern Inventions (Stage 5)
+  { id: 'res_adv_sci_1', type: 'resource', name_en: 'Research Laboratory', name_ko: '첨단 연구소', desc_en: 'Gain 5 Science.', desc_ko: '과학력 5를 얻습니다.', effect: { science: 5 }, emoji: '🔭', color: '#3b82f6', count: 3, requiresStage: 5 },
+  { id: 'res_adv_sci_2', type: 'resource', name_en: 'Scientific Breakthrough', name_ko: '과학적 돌파구', desc_en: 'Gain 6 Science.', desc_ko: '과학력 6을 얻습니다.', effect: { science: 6 }, emoji: '🧬', color: '#3b82f6', count: 2, requiresStage: 5 },
+
   // Action Cards
   { id: 'act_great_idea', type: 'action', name_en: 'Great Idea!', name_ko: '멋진 아이디어!', desc_en: 'Gain 3 Science this turn.', desc_ko: '이번 턴에 과학력 3을 얻습니다.', effect: { science: 3 }, emoji: '🌟', color: '#f97316', count: 3, actionType: 'gainResource' },
   { id: 'act_fundraising', type: 'action', name_en: 'Fundraising Campaign', name_ko: '모금 운동', desc_en: 'Gain 3 Money.', desc_ko: '자금 3을 얻습니다.', effect: { money: 3 }, emoji: '📣', color: '#f97316', count: 3, actionType: 'gainResource' },

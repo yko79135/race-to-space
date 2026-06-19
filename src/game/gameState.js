@@ -7,6 +7,26 @@ export const MAX_HAND_SIZE = 10;
 export const MAX_PLAYS_PER_TURN = 3;
 export const MAX_DISCARDS_PER_TURN = 2;
 
+// A card is eligible for a player only if they've reached its required stage (if any)
+function isCardEligible(card, player) {
+  if (card.requiresStage && player.stage < card.requiresStage) return false;
+  return true;
+}
+
+// Draw `count` eligible cards for `player`, leaving locked/leftover cards in the deck (order preserved)
+function drawEligibleCards(deck, count, player) {
+  const drawn = [];
+  const remaining = [];
+  for (const card of deck) {
+    if (drawn.length < count && isCardEligible(card, player)) {
+      drawn.push(card);
+    } else {
+      remaining.push(card);
+    }
+  }
+  return { drawn, remaining };
+}
+
 export function createPlayer(name, colorId, emblem) {
   return {
     id: `player_${Math.random().toString(36).slice(2, 7)}`,
@@ -28,8 +48,9 @@ export function createGameState(players) {
   // Deal initial 5 cards to each player
   let deckCopy = [...mainDeck];
   const playersWithHands = players.map(p => {
-    const hand = deckCopy.splice(0, 5);
-    return { ...p, hand };
+    const { drawn, remaining } = drawEligibleCards(deckCopy, 5, p);
+    deckCopy = remaining;
+    return { ...p, hand: drawn };
   });
 
   return {
@@ -69,7 +90,8 @@ export function drawToFull(state) {
     discard = [];
   }
 
-  const drawn = deck.splice(0, Math.min(needed, deck.length));
+  const { drawn, remaining } = drawEligibleCards(deck, needed, player);
+  deck = remaining;
   const newHand = [...player.hand, ...drawn];
 
   const updatedPlayers = state.players.map((p, i) =>
@@ -99,7 +121,8 @@ export function drawExtraCards(state, count) {
     discard = [];
   }
 
-  const drawn = deck.splice(0, Math.min(toDraw, deck.length));
+  const { drawn, remaining } = drawEligibleCards(deck, toDraw, player);
+  deck = remaining;
   const newHand = [...player.hand, ...drawn];
 
   const updatedPlayers = state.players.map((p, i) =>
@@ -237,7 +260,8 @@ export function resolveExchangeCards(state, selectedUids) {
     deck = [...deck, ...shuffleDeck(discardPile)];
     discardPile = [];
   }
-  const drawn = deck.splice(0, Math.min(selectedUids.length, deck.length));
+  const { drawn, remaining } = drawEligibleCards(deck, selectedUids.length, player);
+  deck = remaining;
   newHand = [...newHand, ...drawn];
 
   const players = state.players.map((p, i) =>
