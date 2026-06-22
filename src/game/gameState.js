@@ -7,24 +7,19 @@ export const MAX_HAND_SIZE = 10;
 export const MAX_PLAYS_PER_TURN = 3;
 export const MAX_DISCARDS_PER_TURN = 2;
 
-// A card is eligible for a player only if they've reached its required stage (if any)
-function isCardEligible(card, player) {
-  if (card.requiresStage && player.stage < card.requiresStage) return false;
-  return true;
+// Draw `count` cards from the top of the deck — no stage filtering, deck never stalls
+function drawEligibleCards(deck, count) {
+  const drawn = deck.slice(0, count);
+  const remaining = deck.slice(count);
+  return { drawn, remaining };
 }
 
-// Draw `count` eligible cards for `player`, leaving locked/leftover cards in the deck (order preserved)
-function drawEligibleCards(deck, count, player) {
-  const drawn = [];
-  const remaining = [];
-  for (const card of deck) {
-    if (drawn.length < count && isCardEligible(card, player)) {
-      drawn.push(card);
-    } else {
-      remaining.push(card);
-    }
+// Ensure deck has at least `needed` cards by reshuffling discard pile into it
+function ensureDeck(deck, discard, needed) {
+  if (deck.length < needed && discard.length > 0) {
+    return { deck: [...deck, ...shuffleDeck(discard)], discard: [] };
   }
-  return { drawn, remaining };
+  return { deck, discard };
 }
 
 export function createPlayer(name, colorId, emblem) {
@@ -48,7 +43,7 @@ export function createGameState(players) {
   // Deal initial 5 cards to each player
   let deckCopy = [...mainDeck];
   const playersWithHands = players.map(p => {
-    const { drawn, remaining } = drawEligibleCards(deckCopy, 5, p);
+    const { drawn, remaining } = drawEligibleCards(deckCopy, 5);
     deckCopy = remaining;
     return { ...p, hand: drawn };
   });
@@ -81,16 +76,9 @@ export function drawToFull(state) {
   const needed = MAX_HAND_SIZE - player.hand.length;
   if (needed <= 0) return { ...state, phase: 'play' };
 
-  let deck = [...state.mainDeck];
-  let discard = [...state.discardPile];
+  let { deck, discard } = ensureDeck([...state.mainDeck], [...state.discardPile], needed);
 
-  // Reshuffle discard if deck is empty
-  if (deck.length < needed && discard.length > 0) {
-    deck = [...deck, ...shuffleDeck(discard)];
-    discard = [];
-  }
-
-  const { drawn, remaining } = drawEligibleCards(deck, needed, player);
+  const { drawn, remaining } = drawEligibleCards(deck, needed);
   deck = remaining;
   const newHand = [...player.hand, ...drawn];
 
@@ -113,15 +101,9 @@ export function drawExtraCards(state, count) {
   const toDraw = Math.min(count, canDraw);
   if (toDraw <= 0) return state;
 
-  let deck = [...state.mainDeck];
-  let discard = [...state.discardPile];
+  let { deck, discard } = ensureDeck([...state.mainDeck], [...state.discardPile], toDraw);
 
-  if (deck.length < toDraw && discard.length > 0) {
-    deck = [...deck, ...shuffleDeck(discard)];
-    discard = [];
-  }
-
-  const { drawn, remaining } = drawEligibleCards(deck, toDraw, player);
+  const { drawn, remaining } = drawEligibleCards(deck, toDraw);
   deck = remaining;
   const newHand = [...player.hand, ...drawn];
 
@@ -254,13 +236,8 @@ export function resolveExchangeCards(state, selectedUids) {
   const newDiscard = [...state.discardPile, ...discarded];
 
   // Draw replacements (one per selected card)
-  let deck = [...state.mainDeck];
-  let discardPile = [...newDiscard];
-  if (deck.length < selectedUids.length && discardPile.length > 0) {
-    deck = [...deck, ...shuffleDeck(discardPile)];
-    discardPile = [];
-  }
-  const { drawn, remaining } = drawEligibleCards(deck, selectedUids.length, player);
+  let { deck, discard: discardPile } = ensureDeck([...state.mainDeck], [...newDiscard], selectedUids.length);
+  const { drawn, remaining } = drawEligibleCards(deck, selectedUids.length);
   deck = remaining;
   newHand = [...newHand, ...drawn];
 
