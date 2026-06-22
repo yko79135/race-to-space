@@ -22,10 +22,11 @@ function drawEligibleCards(deck, count, playerStage = 1) {
   return { drawn, remaining };
 }
 
-// Ensure deck has at least `needed` cards by reshuffling discard pile into it
-function ensureDeck(deck, discard, needed) {
-  if (deck.length < needed && discard.length > 0) {
-    return { deck: [...deck, ...shuffleDeck(discard)], discard: [] };
+// Ensure deck has at least `needed` eligible cards; reshuffle discard if not
+function ensureDeck(deck, discard, needed, playerStage = 1) {
+  const eligibleCount = deck.filter(c => !c.requiresStage || c.requiresStage <= playerStage).length;
+  if (eligibleCount < needed && discard.length > 0) {
+    return { deck: shuffleDeck([...deck, ...discard]), discard: [] };
   }
   return { deck, discard };
 }
@@ -84,7 +85,7 @@ export function drawToFull(state) {
   const needed = MAX_HAND_SIZE - player.hand.length;
   if (needed <= 0) return { ...state, phase: 'play' };
 
-  let { deck, discard } = ensureDeck([...state.mainDeck], [...state.discardPile], needed);
+  let { deck, discard } = ensureDeck([...state.mainDeck], [...state.discardPile], needed, player.stage);
 
   const { drawn, remaining } = drawEligibleCards(deck, needed, player.stage);
   deck = remaining;
@@ -109,7 +110,7 @@ export function drawExtraCards(state, count) {
   const toDraw = Math.min(count, canDraw);
   if (toDraw <= 0) return state;
 
-  let { deck, discard } = ensureDeck([...state.mainDeck], [...state.discardPile], toDraw);
+  let { deck, discard } = ensureDeck([...state.mainDeck], [...state.discardPile], toDraw, player.stage);
 
   const { drawn, remaining } = drawEligibleCards(deck, toDraw, player.stage);
   deck = remaining;
@@ -244,7 +245,7 @@ export function resolveExchangeCards(state, selectedUids) {
   const newDiscard = [...state.discardPile, ...discarded];
 
   // Draw replacements (one per selected card)
-  let { deck, discard: discardPile } = ensureDeck([...state.mainDeck], [...newDiscard], selectedUids.length);
+  let { deck, discard: discardPile } = ensureDeck([...state.mainDeck], [...newDiscard], selectedUids.length, player.stage);
   const { drawn, remaining } = drawEligibleCards(deck, selectedUids.length, player.stage);
   deck = remaining;
   newHand = [...newHand, ...drawn];
