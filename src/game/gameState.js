@@ -22,13 +22,28 @@ function drawEligibleCards(deck, count, playerStage = 1) {
   return { drawn, remaining };
 }
 
+// Inject stage-gated cards into the deck when the player has reached the required stage
+function injectAdvancedCards(deck, advancedPool, playerStage) {
+  const toInject = [];
+  const remaining = [];
+  for (const card of advancedPool) {
+    if (card.requiresStage && card.requiresStage <= playerStage) {
+      toInject.push(card);
+    } else {
+      remaining.push(card);
+    }
+  }
+  if (toInject.length === 0) return { deck, advancedPool };
+  return { deck: shuffleDeck([...deck, ...toInject]), advancedPool: remaining };
+}
+
 // Ensure deck has at least `needed` eligible cards; reshuffle discard if not
-function ensureDeck(deck, discard, needed, playerStage = 1) {
+function ensureDeck(deck, discard, advancedPool, needed, playerStage = 1) {
   const eligibleCount = deck.filter(c => !c.requiresStage || c.requiresStage <= playerStage).length;
   if (eligibleCount < needed && discard.length > 0) {
-    return { deck: shuffleDeck([...deck, ...discard]), discard: [] };
+    return { deck: shuffleDeck([...deck, ...discard]), discard: [], advancedPool };
   }
-  return { deck, discard };
+  return { deck, discard, advancedPool };
 }
 
 export function createPlayer(name, colorId, emblem) {
@@ -46,11 +61,14 @@ export function createPlayer(name, colorId, emblem) {
 }
 
 export function createGameState(players) {
-  const mainDeck = buildMainDeck();
+  const fullDeck = buildMainDeck();
   const eventDeck = buildEventDeck();
 
+  // Separate stage-gated advanced cards into their own pool
+  const advancedPool = fullDeck.filter(c => c.requiresStage);
+  let deckCopy = fullDeck.filter(c => !c.requiresStage);
+
   // Deal initial 5 cards to each player (all start at stage 1)
-  let deckCopy = [...mainDeck];
   const playersWithHands = players.map(p => {
     const { drawn, remaining } = drawEligibleCards(deckCopy, 5, p.stage);
     deckCopy = remaining;
@@ -63,14 +81,15 @@ export function createGameState(players) {
     turn: 1,
     mainDeck: deckCopy,
     discardPile: [],
+    advancedPool,
     eventDeck,
     usedEvents: [],
-    phase: 'draw', // draw | play | event | transition | gameover
+    phase: 'draw',
     playsThisTurn: 0,
     discardsThisTurn: 0,
     lastEvent: null,
     winner: null,
-    pendingAction: null, // for target-selection actions
+    pendingAction: null,
     log: [],
   };
 }
@@ -85,7 +104,10 @@ export function drawToFull(state) {
   const needed = MAX_HAND_SIZE - player.hand.length;
   if (needed <= 0) return { ...state, phase: 'play' };
 
-  let { deck, discard } = ensureDeck([...state.mainDeck], [...state.discardPile], needed, player.stage);
+  // Inject newly eligible advanced cards before drawing
+  let { deck: injectedDeck, advancedPool } = injectAdvancedCards([...state.mainDeck], [...(state.advancedPool || [])], player.stage);
+
+  let { deck, discard, advancedPool: ap } = ensureDeck(injectedDeck, [...state.discardPile], advancedPool, needed, player.stage);
 
   const { drawn, remaining } = drawEligibleCards(deck, needed, player.stage);
   deck = remaining;
@@ -100,6 +122,7 @@ export function drawToFull(state) {
     players: updatedPlayers,
     mainDeck: deck,
     discardPile: discard,
+    advancedPool: ap,
     phase: 'play',
   };
 }
@@ -110,7 +133,8 @@ export function drawExtraCards(state, count) {
   const toDraw = Math.min(count, canDraw);
   if (toDraw <= 0) return state;
 
-  let { deck, discard } = ensureDeck([...state.mainDeck], [...state.discardPile], toDraw, player.stage);
+  let { deck: injectedDeck, advancedPool } = injectAdvancedCards([...state.mainDeck], [...(state.advancedPool || [])], player.stage);
+  let { deck, discard, advancedPool: ap } = ensureDeck(injectedDeck, [...state.discardPile], advancedPool, toDraw, player.stage);
 
   const { drawn, remaining } = drawEligibleCards(deck, toDraw, player.stage);
   deck = remaining;
@@ -120,7 +144,7 @@ export function drawExtraCards(state, count) {
     i === state.currentPlayerIndex ? { ...p, hand: newHand } : p
   );
 
-  return { ...state, players: updatedPlayers, mainDeck: deck, discardPile: discard };
+  return { ...state, players: updatedPlayers, mainDeck: deck, discardPile: discard, advancedPool: ap };
 }
 
 export function applyResources(players, playerIndex, delta) {
@@ -245,7 +269,8 @@ export function resolveExchangeCards(state, selectedUids) {
   const newDiscard = [...state.discardPile, ...discarded];
 
   // Draw replacements (one per selected card)
-  let { deck, discard: discardPile } = ensureDeck([...state.mainDeck], [...newDiscard], selectedUids.length, player.stage);
+  let { deck: injectedDeck, advancedPool } = injectAdvancedCards([...state.mainDeck], [...(state.advancedPool || [])], player.stage);
+  let { deck, discard: discardPile, advancedPool: ap } = ensureDeck(injectedDeck, [...newDiscard], advancedPool, selectedUids.length, player.stage);
   const { drawn, remaining } = drawEligibleCards(deck, selectedUids.length, player.stage);
   deck = remaining;
   newHand = [...newHand, ...drawn];
@@ -259,6 +284,7 @@ export function resolveExchangeCards(state, selectedUids) {
     players,
     mainDeck: deck,
     discardPile: discardPile,
+    advancedPool: ap,
     playsThisTurn: state.playsThisTurn + 1,
     pendingAction: null,
   };
