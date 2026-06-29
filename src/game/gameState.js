@@ -318,9 +318,14 @@ export function buyTechnology(state, tech) {
     consensus: -cost.consensus,
   });
 
-  // Apply dead-end bonus immediately
+  // Apply dead-end bonus: net gain = printed bonus (cost already deducted above, so add cost back too)
   if (tech.bonus) {
-    players = applyResources(players, state.currentPlayerIndex, tech.bonus);
+    const netBonus = {
+      science: (tech.bonus.science || 0) + (cost.science || 0),
+      money: (tech.bonus.money || 0) + (cost.money || 0),
+      consensus: (tech.bonus.consensus || 0) + (cost.consensus || 0),
+    };
+    players = applyResources(players, state.currentPlayerIndex, netBonus);
   }
 
   // Add tech + update stage
